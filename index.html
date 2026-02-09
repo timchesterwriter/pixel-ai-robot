@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: Trinity Edition</title>
+    <title>NEURAL PIXEL | AI Assistant</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0e14">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --neon-primary: #00ff9d;
             --neon-secondary: #0094ff;
             --neon-accent: #ff00e5;
             --neon-warning: #ff4757;
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #111111;
-            --bg-tertiary: #222222;
+            --bg-primary: #0a0e14;
+            --bg-secondary: #1a1f2e;
+            --bg-tertiary: #252a3a;
             --text-primary: #ffffff;
             --text-secondary: #b0b7c3;
-            --border-color: rgba(0, 255, 157, 0.3);
+            --card-bg: rgba(26, 31, 46, 0.8);
+            --border-color: rgba(0, 255, 157, 0.2);
+            --shadow-glow: 0 0 20px rgba(0, 255, 157, 0.3);
+            --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         * {
@@ -27,42 +34,71 @@
 
         body {
             background: var(--bg-primary);
-            color: var(--neon-primary);
-            font-family: 'Courier New', 'Cascadia Code', 'Monaco', monospace;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
             line-height: 1.6;
         }
 
-        /* Header Status Bar */
-        .status-bar {
-            padding: 12px 20px;
-            font-size: 12px;
-            background: var(--bg-secondary);
+        /* Modern Glassmorphism Header */
+        .app-header {
+            padding: 16px 20px;
+            background: rgba(10, 14, 20, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            flex-wrap: wrap;
         }
 
-        .logo {
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-
-        .status-indicators {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .status-item {
+        .logo-container {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--neon-primary), var(--neon-secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-icon i {
+            color: var(--bg-primary);
+            font-size: 16px;
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(0, 255, 157, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
         }
 
         .status-dot {
@@ -70,7 +106,6 @@
             height: 8px;
             border-radius: 50%;
             background: var(--neon-warning);
-            box-shadow: 0 0 5px var(--neon-warning);
         }
 
         .status-dot.active {
@@ -79,160 +114,189 @@
             animation: pulse 2s infinite;
         }
 
-        .status-dot.connected {
-            background: var(--neon-primary);
-            box-shadow: 0 0 10px var(--neon-primary);
+        /* Main Content */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 80px);
         }
 
-        .status-dot.disconnected {
-            background: var(--neon-warning);
-            box-shadow: 0 0 5px var(--neon-warning);
-        }
-
-        .status-dot.thinking {
-            background: #00d2ff;
-            box-shadow: 0 0 10px #00d2ff;
-            animation: pulse 1s infinite;
-        }
-
-        .blink {
-            animation: blinker 1s linear infinite;
-        }
-
-        /* Terminal */
-        #terminal {
+        /* Chat Interface */
+        .chat-container {
             flex: 1;
+            display: flex;
+            flex-direction: column;
             padding: 20px;
+            overflow: hidden;
+        }
+
+        .messages-wrapper {
+            flex: 1;
             overflow-y: auto;
-            font-size: 14px;
-            line-height: 1.5;
+            margin-bottom: 20px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            padding: 16px;
+            border-radius: 16px;
+            max-width: 85%;
+            word-wrap: break-word;
+            position: relative;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message.system {
+            background: rgba(0, 255, 157, 0.1);
+            border-left: 4px solid var(--neon-primary);
+            margin-right: auto;
+        }
+
+        .message.ai {
+            background: rgba(0, 148, 255, 0.1);
+            border-left: 4px solid var(--neon-secondary);
+            margin-right: auto;
+        }
+
+        .message.user {
+            background: rgba(255, 0, 229, 0.1);
+            border-left: 4px solid var(--neon-accent);
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .message.error {
+            background: rgba(255, 71, 87, 0.1);
+            border-left: 4px solid var(--neon-warning);
+            margin-right: auto;
+        }
+
+        .message-header {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 600;
         }
 
-        .sys {
-            color: #00d2ff;
+        .message-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            opacity: 0.7;
         }
 
-        .ai {
-            color: #fff;
-            border-left: 2px solid var(--neon-primary);
-            padding-left: 10px;
-            margin: 5px 0;
-            background: rgba(0, 255, 157, 0.05);
-            padding: 10px 15px;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .user {
-            color: var(--neon-accent);
-            border-left: 2px solid var(--neon-accent);
-            padding-left: 10px;
-            background: rgba(255, 0, 229, 0.05);
-            padding: 10px 15px;
-            border-radius: 0 8px 8px 0;
-            align-self: flex-end;
-            margin-right: 10px;
-        }
-
-        .err {
-            color: var(--neon-warning);
-            border-left: 2px solid var(--neon-warning);
-            padding-left: 10px;
-            background: rgba(255, 71, 87, 0.05);
-            padding: 10px 15px;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .warning {
-            color: #ffaa00;
-            border-left: 2px solid #ffaa00;
-            padding-left: 10px;
-            background: rgba(255, 170, 0, 0.05);
-            padding: 10px 15px;
-            border-radius: 0 8px 8px 0;
-        }
-
-        /* Controls */
-        .controls {
+        /* Controls Panel */
+        .controls-panel {
             padding: 20px;
-            background: var(--bg-secondary);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+            background: rgba(10, 14, 20, 0.8);
+            backdrop-filter: blur(20px);
             border-top: 1px solid var(--border-color);
         }
 
         .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            margin-bottom: 20px;
         }
 
         .input-label {
-            font-size: 11px;
-            color: var(--neon-primary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        input {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            color: var(--neon-primary);
-            padding: 14px;
-            border-radius: 5px;
-            outline: none;
-            font-family: inherit;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        input:focus {
-            box-shadow: 0 0 15px rgba(0, 255, 157, 0.3);
-            border-color: var(--neon-secondary);
-        }
-
-        input::placeholder {
-            color: rgba(0, 255, 157, 0.3);
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        button {
-            flex: 1;
-            padding: 16px;
-            background: var(--neon-primary);
-            border: none;
-            font-weight: bold;
-            border-radius: 5px;
-            cursor: pointer;
-            color: var(--bg-primary);
-            text-transform: uppercase;
-            font-family: inherit;
+            display: block;
             font-size: 12px;
-            letter-spacing: 1px;
-            transition: all 0.3s;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-with-icon {
+            position: relative;
+        }
+
+        .input-with-icon i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--neon-primary);
+        }
+
+        .styled-input {
+            width: 100%;
+            padding: 16px 16px 16px 46px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .styled-input:focus {
+            outline: none;
+            border-color: var(--neon-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Voice Status Card */
+        .voice-status-card {
+            background: linear-gradient(135deg, rgba(0, 255, 157, 0.1), rgba(0, 148, 255, 0.1));
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .voice-status-text {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            min-height: 24px;
+        }
+
+        .voice-visualizer {
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 3px;
+            margin: 20px 0;
         }
 
-        button:hover {
+        .voice-bar {
+            width: 4px;
+            background: var(--neon-primary);
+            border-radius: 2px;
+            animation: voicePulse 0.8s ease infinite alternate;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-primary), var(--neon-secondary));
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 255, 157, 0.3);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
+            box-shadow: var(--shadow-glow);
         }
 
         .btn-secondary {
@@ -246,182 +310,503 @@
             color: var(--bg-primary);
         }
 
-        .btn-esp {
+        .btn-warning {
             background: transparent;
-            color: var(--neon-secondary);
-            border: 1px solid var(--neon-secondary);
+            color: var(--neon-warning);
+            border: 1px solid var(--neon-warning);
         }
 
-        .btn-esp:hover:not(:disabled) {
-            background: var(--neon-secondary);
+        .btn-warning:hover:not(:disabled) {
+            background: var(--neon-warning);
             color: var(--bg-primary);
         }
 
-        /* Language Selector */
-        .language-selector {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
         }
 
-        .lang-btn {
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        /* Language Switcher */
+        .lang-switcher {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 4px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .lang-option {
             flex: 1;
             padding: 12px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            border-radius: 5px;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
-
-        .lang-btn.active {
-            background: var(--neon-primary);
-            color: var(--bg-primary);
-            border-color: var(--neon-primary);
-        }
-
-        /* Voice Status Display */
-        .voice-status {
-            text-align: center;
-            padding: 15px;
-            margin: 15px 0;
-            background: rgba(0, 255, 157, 0.05);
+            background: transparent;
+            border: none;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
             font-size: 14px;
-            min-height: 60px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 8px;
+        }
+
+        .lang-option.active {
+            background: var(--neon-primary);
+            color: var(--bg-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Status Grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .status-value {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: rgba(0, 255, 157, 0.05);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        /* Activation Phrases */
+        .phrases-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .phrase-tag {
+            padding: 8px 16px;
+            background: rgba(255, 0, 229, 0.1);
+            border: 1px solid var(--neon-accent);
+            border-radius: 20px;
+            font-size: 14px;
+            color: var(--neon-accent);
+        }
+
+        /* Wake Lock Indicator */
+        .wake-lock-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 255, 157, 0.2);
+            border: 1px solid var(--neon-primary);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 12px;
+            color: var(--neon-primary);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .wake-lock-indicator.active {
+            display: flex;
+            animation: pulse 2s infinite;
         }
 
         /* Animations */
-        @keyframes blinker {
-            50% { opacity: 0; }
-        }
-
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
 
         @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes voicePulse {
+            0% {
+                height: 5px;
+                opacity: 0.3;
+            }
+            100% {
+                height: 30px;
+                opacity: 1;
+            }
         }
 
         /* Scrollbar */
-        #terminal::-webkit-scrollbar {
+        ::-webkit-scrollbar {
             width: 6px;
         }
 
-        #terminal::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
             background: var(--bg-tertiary);
             border-radius: 3px;
         }
 
-        #terminal::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-thumb {
             background: var(--neon-primary);
             border-radius: 3px;
         }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .status-bar {
-                flex-direction: column;
-                gap: 10px;
-                text-align: center;
-                padding: 10px;
+            .app-header {
+                padding: 12px 16px;
             }
             
-            .status-indicators {
-                flex-wrap: wrap;
-                justify-content: center;
+            .logo-text {
+                font-size: 16px;
             }
             
-            .button-group {
-                flex-direction: column;
+            .chat-container {
+                padding: 16px;
             }
             
-            button {
+            .message {
+                max-width: 90%;
                 padding: 14px;
+            }
+            
+            .controls-panel {
+                padding: 16px;
+            }
+            
+            .btn {
+                padding: 14px;
+            }
+            
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .main-container {
+                flex-direction: row;
+                height: calc(100vh - 80px);
+            }
+            
+            .chat-container {
+                flex: 3;
+                border-right: 1px solid var(--border-color);
+            }
+            
+            .controls-panel {
+                flex: 2;
+                max-width: 400px;
+                border-top: none;
+                overflow-y: auto;
+            }
+        }
+
+        /* Model Warning */
+        .model-warning {
+            background: linear-gradient(135deg, rgba(255, 170, 0, 0.1), rgba(255, 100, 0, 0.1));
+            border: 1px solid #ffaa00;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .model-warning i {
+            color: #ffaa00;
+            font-size: 20px;
+            margin-top: 2px;
+        }
+
+        .model-warning-content h4 {
+            color: #ffaa00;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .model-warning-content p {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            width: fit-content;
+            margin-bottom: 16px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--neon-primary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-8px);
             }
         }
     </style>
 </head>
 <body>
-    <div class="status-bar">
-        <div class="logo">PIXEL AI: Trinity Edition <span class="blink">_</span></div>
-        <div class="status-indicators">
-            <div class="status-item">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">READY</span>
-            </div>
-            <div class="status-item">
-                <span>LANG:</span>
-                <span id="currentLang">RU</span>
-            </div>
-            <div class="status-item">
-                <span>ESP32:</span>
-                <div class="status-dot disconnected" id="espStatusDot"></div>
-                <span id="espStatusText">DISCONNECTED</span>
-            </div>
-        </div>
+    <!-- Wake Lock Indicator -->
+    <div class="wake-lock-indicator" id="wakeLockIndicator">
+        <i class="fas fa-lock"></i>
+        <span id="wakeLockText">WAKE LOCK ACTIVE</span>
     </div>
 
-    <div id="terminal">
-        <div class="warning">> ВНИМАНИЕ: Используется модель arcee-ai/trinity-large-preview:free</div>
-        <div class="warning">> Убедитесь, что ваш API ключ OpenRouter имеет доступ к этой модели</div>
-        <div class="sys">> Система загружена. Введите API ключ OpenRouter для инициализации.</div>
-        <div class="sys">> Получите ключ на: https://openrouter.ai</div>
-        <div class="sys">> Активационные фразы: "пиксель" (русский) или "pixel" (английский)</div>
-    </div>
-
-    <div class="controls" id="setup">
-        <div class="input-group">
-            <div class="input-label">OPENROUTER API KEY</div>
-            <input type="password" id="apiKey" placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="logo-text">NEURAL PIXEL</div>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot" id="globalStatusDot"></span>
+                <span id="globalStatusText">READY</span>
+            </div>
         </div>
-        
-        <div class="button-group">
-            <button onclick="initializeSystem()" id="initBtn">
-                <span>⚡</span>
-                <span>ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Chat Interface -->
+        <div class="chat-container">
+            <div class="messages-wrapper" id="messagesWrapper">
+                <div class="message system">
+                    <div class="message-header">
+                        <i class="fas fa-terminal"></i>
+                        <span>SYSTEM</span>
+                    </div>
+                    <div>Neural Pixel AI Assistant загружен. Введите API ключ OpenRouter для инициализации.</div>
+                    <div class="message-time" id="currentTime"></div>
+                </div>
+                
+                <div class="message warning">
+                    <div class="message-header">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>ВНИМАНИЕ</span>
+                    </div>
+                    <div>Используется модель: arcee-ai/trinity-large-preview:free. Убедитесь, что ваш API ключ имеет доступ к этой модели.</div>
+                </div>
+                
+                <div class="message system">
+                    <div class="message-header">
+                        <i class="fas fa-info-circle"></i>
+                        <span>ИНФОРМАЦИЯ</span>
+                    </div>
+                    <div>Активационные фразы: "пиксель" (русский) или "pixel" (английский)</div>
+                    <div>После активации скажите команду, затем система снова будет ждать активационной фразы.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <!-- Model Warning -->
+            <div class="model-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="model-warning-content">
+                    <h4 id="modelWarningTitle">МОДЕЛЬ TRINITY</h4>
+                    <p id="modelWarningText">Используется arcee-ai/trinity-large-preview:free. Убедитесь, что ваш API ключ OpenRouter имеет доступ к этой модели.</p>
+                </div>
+            </div>
+
+            <!-- Status Grid -->
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label" id="aiStatusLabel">AI СТАТУС</div>
+                    <div class="status-value">
+                        <span class="status-dot" id="aiStatusDot"></span>
+                        <span id="aiStatusText">OFFLINE</span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label" id="voiceStatusLabel">ГОЛОС</div>
+                    <div class="status-value">
+                        <span class="status-dot" id="voiceStatusDot"></span>
+                        <span id="voiceStatusText">DISABLED</span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label" id="espStatusLabel">ESP32</div>
+                    <div class="status-value">
+                        <span class="status-dot" id="espStatusDot"></span>
+                        <span id="espStatusText">DISCONNECTED</span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label">ПАМЯТЬ</div>
+                    <div class="status-value">
+                        <span id="memoryStatusText">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Configuration -->
+            <div class="input-group">
+                <label class="input-label" for="apiKey">OPENROUTER API KEY</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-key"></i>
+                    <input type="password" id="apiKey" class="styled-input" 
+                           placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="initializeSystem()" id="initBtn">
+                <i class="fas fa-rocket"></i>
+                <span id="initText">ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>
             </button>
-        </div>
-        
-        <div class="input-group" id="espSection" style="display: none;">
-            <div class="input-label">ESP32 IP АДРЕС</div>
-            <div class="button-group">
-                <input type="text" id="espIp" placeholder="192.168.1.100" style="flex: 3;">
-                <button onclick="connectToESP32()" id="espConnectBtn" class="btn-esp" style="flex: 1;">
-                    <span>🔗</span>
-                    <span>ПОДКЛЮЧИТЬ</span>
+
+            <!-- ESP32 Connection -->
+            <div id="espSection" style="display: none;">
+                <div class="input-group">
+                    <label class="input-label" for="espIp">ESP32 IP АДРЕС</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-microchip"></i>
+                        <input type="text" id="espIp" class="styled-input" 
+                               placeholder="192.168.1.100">
+                    </div>
+                </div>
+                
+                <button class="btn btn-secondary" onclick="connectToESP32()" id="espConnectBtn">
+                    <i class="fas fa-plug"></i>
+                    <span id="espConnectText">ПОДКЛЮЧИТЬ ESP32</span>
                 </button>
             </div>
-        </div>
-        
-        <div class="language-selector">
-            <button class="lang-btn active" onclick="setLanguage('ru')">РУССКИЙ</button>
-            <button class="lang-btn" onclick="setLanguage('en')">ENGLISH</button>
-        </div>
-        
-        <div class="voice-status" id="voiceStatus">
-            Система не инициализирована
-        </div>
-        
-        <div class="button-group" id="voiceControls" style="display: none;">
-            <button onclick="toggleVoiceControl()" id="voiceToggleBtn" class="btn-secondary">
-                <span>🎤</span>
-                <span>ВКЛЮЧИТЬ ГОЛОС</span>
-            </button>
-            <button onclick="testMicrophone()" id="testMicBtn" class="btn-secondary">
-                <span>🎧</span>
-                <span>ТЕСТ МИКРОФОНА</span>
-            </button>
+
+            <!-- Language Selection -->
+            <div class="lang-switcher">
+                <button class="lang-option active" onclick="setLanguage('ru')">
+                    <i class="fas fa-language"></i>
+                    <span>РУССКИЙ</span>
+                </button>
+                <button class="lang-option" onclick="setLanguage('en')">
+                    <i class="fas fa-language"></i>
+                    <span>ENGLISH</span>
+                </button>
+            </div>
+
+            <div class="phrases-container">
+                <div class="phrase-tag">пиксель</div>
+                <div class="phrase-tag">pixel</div>
+            </div>
+
+            <!-- Voice Control -->
+            <div id="voiceControlSection" style="display: none;">
+                <div class="voice-status-card">
+                    <div class="voice-status-text" id="voiceStatusText">
+                        Голосовое управление отключено
+                    </div>
+                    
+                    <div class="voice-visualizer" id="voiceVisualizer"></div>
+                    
+                    <button class="btn btn-primary" onclick="toggleVoiceControl()" id="voiceToggleBtn">
+                        <i class="fas fa-microphone"></i>
+                        <span id="voiceToggleText">ВКЛЮЧИТЬ ГОЛОС</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions" id="quickActions" style="display: none;">
+                <button class="btn btn-secondary" onclick="testMicrophone()">
+                    <i class="fas fa-headphones"></i>
+                    <span id="testMicText">ТЕСТ МИКРОФОНА</span>
+                </button>
+                
+                <button class="btn btn-secondary" onclick="testConnections()">
+                    <i class="fas fa-wrench"></i>
+                    <span id="testText">ТЕСТ СИСТЕМЫ</span>
+                </button>
+                
+                <button class="btn btn-warning" onclick="resetSystem()">
+                    <i class="fas fa-redo"></i>
+                    <span id="resetText">СБРОС</span>
+                </button>
+                
+                <button class="btn btn-secondary" onclick="clearChat()">
+                    <i class="fas fa-trash"></i>
+                    <span id="clearText">ОЧИСТИТЬ ЧАТ</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -438,183 +823,305 @@
             // Состояния
             systemActive: false,
             voiceEnabled: false,
-            listeningForActivation: false,
+            listeningForActivation: true,  // Начинаем с ожидания активации
             listeningForCommand: false,
             isProcessing: false,
             isSpeaking: false,
             espConnected: false,
             espTesting: false,
+            microphoneGranted: false,
             
             // Объекты
             speechRecognition: null,
             speechSynthesis: window.speechSynthesis,
             wakeLock: null,
+            visualizerInterval: null,
+            
+            // Логи
+            logEntries: 0,
+            maxLogEntries: 50,
             
             // Тексты для интерфейса
             translations: {
                 ru: {
-                    // Сообщения интерфейса
-                    statusReady: "ГОТОВ",
-                    statusListeningName: "СЛУШАЮ (ИМЯ)",
-                    statusReplying: "ОТВЕЧАЮ",
-                    statusListeningCmd: "СЛУШАЮ (КОМАНДА)",
-                    statusThinking: "ДУМАЮ",
+                    // Статусы
+                    globalStatusReady: "ГОТОВ",
+                    globalStatusListening: "СЛУШАЮ",
+                    globalStatusProcessing: "ОБРАБОТКА",
+                    globalStatusSpeaking: "ГОВОРЮ",
+                    
+                    aiStatusLabel: "AI СТАТУС",
+                    voiceStatusLabel: "ГОЛОС",
+                    espStatusLabel: "ESP32",
+                    
+                    aiStatusOnline: "ONLINE",
+                    aiStatusOffline: "OFFLINE",
+                    voiceStatusActive: "ACTIVE",
+                    voiceStatusDisabled: "DISABLED",
+                    voiceStatusListening: "LISTENING",
+                    espStatusConnected: "ПОДКЛЮЧЕН",
+                    espStatusDisconnected: "ОТКЛЮЧЕН",
+                    espStatusConnecting: "ПОДКЛЮЧЕНИЕ...",
                     
                     // Кнопки
-                    initSystem: "ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ",
-                    enableVoice: "ВКЛЮЧИТЬ ГОЛОС",
-                    disableVoice: "ВЫКЛЮЧИТЬ ГОЛОС",
-                    testMic: "ТЕСТ МИКРОФОНА",
-                    connectESP: "ПОДКЛЮЧИТЬ",
-                    connectingESP: "ПОДКЛЮЧЕНИЕ...",
-                    disconnectESP: "ОТКЛЮЧИТЬ",
+                    initText: "ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ",
+                    espConnectText: "ПОДКЛЮЧИТЬ ESP32",
+                    espConnectingText: "ПОДКЛЮЧЕНИЕ...",
+                    espDisconnectText: "ОТКЛЮЧИТЬ ESP32",
+                    voiceToggleText: "ВКЛЮЧИТЬ ГОЛОС",
+                    voiceToggleOffText: "ВЫКЛЮЧИТЬ ГОЛОС",
+                    testMicText: "ТЕСТ МИКРОФОНА",
+                    testText: "ТЕСТ СИСТЕМЫ",
+                    resetText: "СБРОС",
+                    clearText: "ОЧИСТИТЬ ЧАТ",
                     
-                    // Статус ESP32
-                    espConnecting: "ПОДКЛЮЧЕНИЕ...",
-                    espConnected: "ПОДКЛЮЧЕН",
-                    espDisconnected: "ОТКЛЮЧЕН",
-                    espError: "ОШИБКА",
-                    
-                    // Статус голоса
-                    voiceDisabled: "Голосовое управление отключено",
-                    voiceWaiting: "Ожидание активационной фразы...",
-                    voiceReady: "Готов принять команду...",
-                    voiceProcessing: "Обработка команды...",
-                    voiceSpeaking: "Отвечаю...",
+                    // Голосовые статусы
+                    voiceStatusMessages: {
+                        disabled: "Голосовое управление отключено",
+                        waiting: "Жду 'пиксель' или 'pixel'...",
+                        listening: "Слушаю команду...",
+                        processing: "Обрабатываю...",
+                        speaking: "Отвечаю..."
+                    },
                     
                     // Ответы робота
-                    activationResponse: "Слушаю тебя!",
+                    activationResponse: "Слушаю вас!",
                     
                     // Системные сообщения
-                    systemInitialized: "Система активирована",
+                    systemInitialized: "Система инициализирована",
                     voiceEnabledMsg: "Голосовое управление включено",
                     voiceDisabledMsg: "Голосовое управление выключено",
                     microphoneTestSuccess: "Микрофон работает нормально",
                     microphoneTestFail: "Не удалось получить доступ к микрофону",
                     espConnectedMsg: "ESP32 подключен",
                     espDisconnectedMsg: "ESP32 отключен",
-                    espErrorMsg: "Ошибка подключения к ESP32"
+                    espErrorMsg: "Ошибка подключения к ESP32",
+                    
+                    // Предупреждение модели
+                    modelWarningTitle: "МОДЕЛЬ TRINITY",
+                    modelWarningText: "Используется arcee-ai/trinity-large-preview:free. Убедитесь, что ваш API ключ OpenRouter имеет доступ к этой модели.",
+                    
+                    // Wake Lock
+                    wakeLockText: "WAKE LOCK АКТИВЕН"
                 },
                 en: {
-                    // Interface messages
-                    statusReady: "READY",
-                    statusListeningName: "LISTENING (NAME)",
-                    statusReplying: "REPLYING",
-                    statusListeningCmd: "LISTENING (COMMAND)",
-                    statusThinking: "THINKING",
+                    // Statuses
+                    globalStatusReady: "READY",
+                    globalStatusListening: "LISTENING",
+                    globalStatusProcessing: "PROCESSING",
+                    globalStatusSpeaking: "SPEAKING",
+                    
+                    aiStatusLabel: "AI STATUS",
+                    voiceStatusLabel: "VOICE",
+                    espStatusLabel: "ESP32",
+                    
+                    aiStatusOnline: "ONLINE",
+                    aiStatusOffline: "OFFLINE",
+                    voiceStatusActive: "ACTIVE",
+                    voiceStatusDisabled: "DISABLED",
+                    voiceStatusListening: "LISTENING",
+                    espStatusConnected: "CONNECTED",
+                    espStatusDisconnected: "DISCONNECTED",
+                    espStatusConnecting: "CONNECTING...",
                     
                     // Buttons
-                    initSystem: "INITIALIZE SYSTEM",
-                    enableVoice: "ENABLE VOICE",
-                    disableVoice: "DISABLE VOICE",
-                    testMic: "TEST MICROPHONE",
-                    connectESP: "CONNECT",
-                    connectingESP: "CONNECTING...",
-                    disconnectESP: "DISCONNECT",
+                    initText: "INITIALIZE SYSTEM",
+                    espConnectText: "CONNECT ESP32",
+                    espConnectingText: "CONNECTING...",
+                    espDisconnectText: "DISCONNECT ESP32",
+                    voiceToggleText: "ENABLE VOICE",
+                    voiceToggleOffText: "DISABLE VOICE",
+                    testMicText: "TEST MICROPHONE",
+                    testText: "TEST SYSTEM",
+                    resetText: "RESET",
+                    clearText: "CLEAR CHAT",
                     
-                    // ESP32 Status
-                    espConnecting: "CONNECTING...",
-                    espConnected: "CONNECTED",
-                    espDisconnected: "DISCONNECTED",
-                    espError: "ERROR",
-                    
-                    // Voice status
-                    voiceDisabled: "Voice control disabled",
-                    voiceWaiting: "Waiting for activation phrase...",
-                    voiceReady: "Ready for command...",
-                    voiceProcessing: "Processing command...",
-                    voiceSpeaking: "Speaking...",
+                    // Voice statuses
+                    voiceStatusMessages: {
+                        disabled: "Voice control disabled",
+                        waiting: "Waiting for 'пиксель' or 'pixel'...",
+                        listening: "Listening for command...",
+                        processing: "Processing...",
+                        speaking: "Speaking..."
+                    },
                     
                     // Robot responses
                     activationResponse: "I'm listening!",
                     
                     // System messages
-                    systemInitialized: "System activated",
+                    systemInitialized: "System initialized",
                     voiceEnabledMsg: "Voice control enabled",
                     voiceDisabledMsg: "Voice control disabled",
                     microphoneTestSuccess: "Microphone working normally",
                     microphoneTestFail: "Failed to access microphone",
                     espConnectedMsg: "ESP32 connected",
                     espDisconnectedMsg: "ESP32 disconnected",
-                    espErrorMsg: "Error connecting to ESP32"
+                    espErrorMsg: "Error connecting to ESP32",
+                    
+                    // Model warning
+                    modelWarningTitle: "TRINITY MODEL",
+                    modelWarningText: "Using arcee-ai/trinity-large-preview:free. Make sure your OpenRouter API key has access to this model.",
+                    
+                    // Wake Lock
+                    wakeLockText: "WAKE LOCK ACTIVE"
                 }
             }
         };
 
         // ============================================
-        // ОСНОВНЫЕ ФУНКЦИИ
+        // ФУНКЦИИ ИНТЕРФЕЙСА
         // ============================================
-        function logToTerminal(message, type = 'sys') {
-            const terminal = document.getElementById('terminal');
-            const line = document.createElement('div');
+        function addMessage(text, type = 'system', sender = 'SYSTEM') {
+            const messagesWrapper = document.getElementById('messagesWrapper');
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('ru-RU', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
             
-            line.className = type;
-            line.innerHTML = `> ${message}`;
-            line.style.animation = 'slideIn 0.3s ease-out';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
             
-            terminal.appendChild(line);
-            terminal.scrollTop = terminal.scrollHeight;
+            let icon = 'fa-terminal';
+            if (type === 'ai') icon = 'fa-robot';
+            else if (type === 'user') icon = 'fa-user';
+            else if (type === 'error') icon = 'fa-exclamation-circle';
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="fas ${icon}"></i>
+                    <span>${sender}</span>
+                </div>
+                <div>${text}</div>
+                <div class="message-time">${timestamp}</div>
+            `;
+            
+            messagesWrapper.appendChild(messageDiv);
+            messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
+            
+            // Управление памятью
+            SystemState.logEntries++;
+            updateMemoryStatus();
+            
+            if (SystemState.logEntries > SystemState.maxLogEntries) {
+                const firstMessage = messagesWrapper.querySelector('.message');
+                if (firstMessage) {
+                    messagesWrapper.removeChild(firstMessage);
+                    SystemState.logEntries--;
+                }
+            }
         }
 
-        function updateStatus(status, indicator = 'ready') {
-            const statusText = document.getElementById('statusText');
-            const statusDot = document.getElementById('statusDot');
+        function updateMemoryStatus() {
+            const percent = Math.min(100, Math.round((SystemState.logEntries / SystemState.maxLogEntries) * 100));
+            document.getElementById('memoryStatusText').textContent = `${percent}%`;
+        }
+
+        function updateGlobalStatus(status, indicator = 'ready') {
+            const globalStatusDot = document.getElementById('globalStatusDot');
+            const globalStatusText = document.getElementById('globalStatusText');
             
-            statusText.textContent = status;
-            
-            // Сбрасываем все классы
-            statusDot.className = 'status-dot';
+            globalStatusText.textContent = status;
+            globalStatusDot.className = 'status-dot';
             
             if (indicator === 'active') {
-                statusDot.classList.add('active');
-            } else if (indicator === 'thinking') {
-                statusDot.classList.add('thinking');
+                globalStatusDot.classList.add('active');
             }
         }
 
-        function updateESPStatus(connected, connecting = false) {
-            const espStatusDot = document.getElementById('espStatusDot');
-            const espStatusText = document.getElementById('espStatusText');
-            const espConnectBtn = document.getElementById('espConnectBtn');
+        function updateStatusDisplay() {
             const t = SystemState.translations[SystemState.language];
             
-            if (connecting) {
-                espStatusDot.className = 'status-dot thinking';
-                espStatusText.textContent = t.espConnecting;
-                espConnectBtn.disabled = true;
-                espConnectBtn.innerHTML = '<span>⏳</span><span>' + t.connectingESP + '</span>';
-            } else if (connected) {
-                SystemState.espConnected = true;
-                espStatusDot.className = 'status-dot connected';
-                espStatusText.textContent = t.espConnected;
-                espConnectBtn.disabled = false;
-                espConnectBtn.innerHTML = '<span>🔗</span><span>' + t.disconnectESP + '</span>';
-                logToTerminal(t.espConnectedMsg, 'sys');
+            // AI Status
+            const aiDot = document.getElementById('aiStatusDot');
+            const aiText = document.getElementById('aiStatusText');
+            aiDot.className = SystemState.systemActive ? 'status-dot active' : 'status-dot';
+            aiText.textContent = SystemState.systemActive ? t.aiStatusOnline : t.aiStatusOffline;
+            
+            // Voice Status
+            const voiceDot = document.getElementById('voiceStatusDot');
+            const voiceText = document.getElementById('voiceStatusText');
+            if (SystemState.voiceEnabled) {
+                voiceDot.className = 'status-dot active';
+                voiceText.textContent = SystemState.listeningForActivation ? t.voiceStatusMessages.waiting : 
+                                       SystemState.listeningForCommand ? t.voiceStatusMessages.listening : t.voiceStatusActive;
             } else {
-                SystemState.espConnected = false;
-                espStatusDot.className = 'status-dot disconnected';
-                espStatusText.textContent = t.espDisconnected;
-                espConnectBtn.disabled = false;
-                espConnectBtn.innerHTML = '<span>🔗</span><span>' + t.connectESP + '</span>';
-                logToTerminal(t.espDisconnectedMsg, 'sys');
+                voiceDot.className = 'status-dot';
+                voiceText.textContent = t.voiceStatusDisabled;
+            }
+            
+            // ESP32 Status
+            const espDot = document.getElementById('espStatusDot');
+            const espText = document.getElementById('espStatusText');
+            if (SystemState.espTesting) {
+                espDot.className = 'status-dot active';
+                espText.textContent = t.espStatusConnecting;
+            } else if (SystemState.espConnected) {
+                espDot.className = 'status-dot active';
+                espText.textContent = t.espStatusConnected;
+            } else {
+                espDot.className = 'status-dot';
+                espText.textContent = t.espStatusDisconnected;
+            }
+            
+            // Глобальный статус
+            if (SystemState.voiceEnabled) {
+                if (SystemState.listeningForActivation) {
+                    updateGlobalStatus(t.globalStatusListening, 'active');
+                } else if (SystemState.listeningForCommand) {
+                    updateGlobalStatus(t.globalStatusListening, 'active');
+                } else if (SystemState.isProcessing) {
+                    updateGlobalStatus(t.globalStatusProcessing, 'active');
+                } else if (SystemState.isSpeaking) {
+                    updateGlobalStatus(t.globalStatusSpeaking, 'active');
+                } else {
+                    updateGlobalStatus(t.globalStatusReady, 'active');
+                }
+            } else {
+                updateGlobalStatus(t.globalStatusReady, SystemState.systemActive ? 'active' : 'ready');
             }
         }
 
-        function updateVoiceStatus(message) {
-            const voiceStatus = document.getElementById('voiceStatus');
-            voiceStatus.textContent = message;
+        function updateVoiceStatus(messageKey) {
+            const voiceStatusText = document.getElementById('voiceStatusText');
+            const t = SystemState.translations[SystemState.language];
+            
+            voiceStatusText.textContent = t.voiceStatusMessages[messageKey] || messageKey;
+        }
+
+        function updateVisualizer() {
+            const visualizer = document.getElementById('voiceVisualizer');
+            const isActive = SystemState.listeningForActivation || SystemState.listeningForCommand || SystemState.isSpeaking;
+            const barCount = SystemState.isSpeaking ? 40 : 20;
+            
+            if (!isActive) {
+                visualizer.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            for (let i = 0; i < barCount; i++) {
+                const height = SystemState.isSpeaking 
+                    ? Math.floor(Math.random() * 40 + 10)
+                    : Math.floor(Math.random() * 20 + 5);
+                const delay = i * (SystemState.isSpeaking ? 0.03 : 0.05);
+                const opacity = 0.3 + Math.random() * 0.7;
+                html += `<div class="voice-bar" style="height:${height}px;opacity:${opacity};animation-delay:${delay}s"></div>`;
+            }
+            
+            visualizer.innerHTML = html;
         }
 
         function setLanguage(lang) {
             SystemState.language = lang;
             document.getElementById('htmlLang').lang = lang;
-            document.getElementById('currentLang').textContent = lang.toUpperCase();
             
             // Обновляем кнопки языка
-            document.querySelectorAll('.lang-btn').forEach(btn => {
+            document.querySelectorAll('.lang-option').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            event.target.closest('.lang-option').classList.add('active');
             
             // Обновляем интерфейс
             updateInterfaceLanguage();
@@ -624,104 +1131,67 @@
                 restartSpeechRecognition();
             }
             
-            logToTerminal(lang === 'ru' ? 'Язык изменен на Русский' : 'Language changed to English', 'sys');
+            addMessage(lang === 'ru' ? 'Язык изменен на Русский' : 'Language changed to English', 'system');
         }
 
         function updateInterfaceLanguage() {
             const t = SystemState.translations[SystemState.language];
             
             // Обновляем кнопки
-            document.getElementById('initBtn').querySelector('span:nth-child(2)').textContent = t.initSystem;
+            document.getElementById('initText').textContent = t.initText;
+            document.getElementById('espConnectText').textContent = t.espConnectText;
+            document.getElementById('testMicText').textContent = t.testMicText;
+            document.getElementById('testText').textContent = t.testText;
+            document.getElementById('resetText').textContent = t.resetText;
+            document.getElementById('clearText').textContent = t.clearText;
             
             const voiceToggleBtn = document.getElementById('voiceToggleBtn');
             if (voiceToggleBtn) {
                 if (SystemState.voiceEnabled) {
-                    voiceToggleBtn.querySelector('span:nth-child(2)').textContent = t.disableVoice;
+                    voiceToggleBtn.querySelector('span:nth-child(2)').textContent = t.voiceToggleOffText;
                 } else {
-                    voiceToggleBtn.querySelector('span:nth-child(2)').textContent = t.enableVoice;
+                    voiceToggleBtn.querySelector('span:nth-child(2)').textContent = t.voiceToggleText;
                 }
             }
             
-            if (document.getElementById('testMicBtn')) {
-                document.getElementById('testMicBtn').querySelector('span:nth-child(2)').textContent = t.testMic;
-            }
+            // Обновляем статусы
+            document.getElementById('aiStatusLabel').textContent = t.aiStatusLabel;
+            document.getElementById('voiceStatusLabel').textContent = t.voiceStatusLabel;
+            document.getElementById('espStatusLabel').textContent = t.espStatusLabel;
             
-            // Обновляем ESP32 статус
-            updateESPStatus(SystemState.espConnected, SystemState.espTesting);
+            // Обновляем модель предупреждения
+            document.getElementById('modelWarningTitle').textContent = t.modelWarningTitle;
+            document.getElementById('modelWarningText').textContent = t.modelWarningText;
+            
+            // Обновляем Wake Lock
+            document.getElementById('wakeLockText').textContent = t.wakeLockText;
             
             // Обновляем статус голоса
             if (SystemState.voiceEnabled) {
                 if (SystemState.listeningForActivation) {
-                    updateVoiceStatus(t.voiceWaiting);
+                    updateVoiceStatus('waiting');
                 } else if (SystemState.listeningForCommand) {
-                    updateVoiceStatus(t.voiceReady);
+                    updateVoiceStatus('listening');
                 } else if (SystemState.isProcessing) {
-                    updateVoiceStatus(t.voiceProcessing);
+                    updateVoiceStatus('processing');
                 } else if (SystemState.isSpeaking) {
-                    updateVoiceStatus(t.voiceSpeaking);
+                    updateVoiceStatus('speaking');
                 }
             } else {
-                updateVoiceStatus(t.voiceDisabled);
+                updateVoiceStatus('disabled');
             }
+            
+            // Обновляем все статусы системы
+            updateStatusDisplay();
         }
 
         // ============================================
-        // ПОДКЛЮЧЕНИЕ ESP32
-        // ============================================
-        async function connectToESP32() {
-            const espIp = document.getElementById('espIp').value.trim();
-            
-            if (!espIp) {
-                logToTerminal('Введите IP адрес ESP32', 'err');
-                return;
-            }
-            
-            SystemState.espIp = espIp;
-            SystemState.espTesting = true;
-            updateESPStatus(false, true);
-            
-            logToTerminal('Попытка подключения к ESP32...', 'sys');
-            
-            try {
-                // Используем таймаут для проверки подключения
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                
-                // Пробуем отправить простой запрос для проверки подключения
-                const response = await fetch(`http://${espIp}/`, {
-                    method: 'GET',
-                    mode: 'no-cors',
-                    signal: controller.signal
-                }).catch(() => null);
-                
-                clearTimeout(timeoutId);
-                
-                // Сохраняем IP в localStorage
-                localStorage.setItem('pixel_esp_ip', espIp);
-                
-                SystemState.espConnected = true;
-                SystemState.espTesting = false;
-                updateESPStatus(true);
-                
-                logToTerminal('✓ ESP32 доступен', 'sys');
-                
-            } catch (error) {
-                SystemState.espTesting = false;
-                updateESPStatus(false);
-                
-                const t = SystemState.translations[SystemState.language];
-                logToTerminal(t.espErrorMsg, 'err');
-                console.error('Ошибка подключения к ESP32:', error);
-            }
-        }
-
-        // ============================================
-        // СИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ
+        // ГОЛОСОВОЕ УПРАВЛЕНИЕ (ИСПРАВЛЕННАЯ ЛОГИКА)
         // ============================================
         async function initializeSpeechRecognition() {
             // Проверяем поддержку
             if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                logToTerminal('Браузер не поддерживает распознавание речи', 'err');
+                addMessage('Браузер не поддерживает распознавание речи', 'error');
                 return false;
             }
             
@@ -739,10 +1209,11 @@
                     // Освобождаем поток после проверки разрешения
                     stream.getTracks().forEach(track => track.stop());
                     
-                    logToTerminal('✓ Разрешение на микрофон получено', 'sys');
+                    SystemState.microphoneGranted = true;
+                    addMessage('Разрешение на микрофон получено', 'system');
                 }
             } catch (error) {
-                logToTerminal('⚠ Разрешение на микрофон не получено', 'err');
+                addMessage('Разрешение на микрофон не получено', 'error');
                 return false;
             }
             
@@ -757,16 +1228,12 @@
             SystemState.speechRecognition.maxAlternatives = 1;
             
             // События
-            SystemState.speechRecognition.onstart = () => {
-                console.log('Распознавание началось');
-            };
-            
             SystemState.speechRecognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript.toLowerCase();
                 const confidence = event.results[0][0].confidence;
                 
                 console.log(`Распознано: "${transcript}" (${(confidence * 100).toFixed(1)}%)`);
-                logToTerminal(`Слышу: "${transcript}"`, 'user');
+                addMessage(transcript, 'user', 'USER');
                 
                 if (SystemState.listeningForActivation) {
                     handleActivation(transcript);
@@ -828,20 +1295,20 @@
         function handleActivation(transcript) {
             // Проверяем обе активационные фразы независимо от языка
             if (transcript.includes('пиксель') || transcript.includes('pixel')) {
-                logToTerminal('✓ Активационная фраза распознана', 'sys');
+                addMessage('✓ Активационная фраза распознана', 'system');
                 
+                // Переходим в режим ожидания команды
                 SystemState.listeningForActivation = false;
-                SystemState.listeningForCommand = false;
-                SystemState.isProcessing = true;
+                SystemState.listeningForCommand = true;
                 
-                updateStatus(SystemState.translations[SystemState.language].statusReplying, 'thinking');
-                updateVoiceStatus(SystemState.translations[SystemState.language].voiceProcessing);
+                updateStatusDisplay();
+                updateVoiceStatus('listening');
                 
                 // Отвечаем на активацию
                 const response = SystemState.translations[SystemState.language].activationResponse;
                 speakText(response);
                 
-                logToTerminal(`PIXEL: ${response}`, 'sys');
+                addMessage(response, 'ai', 'PIXEL');
             } else {
                 // Если не услышали активационную фразу, продолжаем слушать
                 startRecognition();
@@ -849,16 +1316,16 @@
         }
 
         function handleCommand(transcript) {
-            SystemState.listeningForCommand = false;
-            SystemState.isProcessing = true;
-            
-            updateStatus(SystemState.translations[SystemState.language].statusThinking, 'thinking');
-            updateVoiceStatus(SystemState.translations[SystemState.language].voiceProcessing);
-            
             // Останавливаем распознавание на время обработки
             if (SystemState.speechRecognition) {
                 SystemState.speechRecognition.stop();
             }
+            
+            SystemState.listeningForCommand = false;
+            SystemState.isProcessing = true;
+            
+            updateStatusDisplay();
+            updateVoiceStatus('processing');
             
             // Отправляем запрос к AI
             processAIRequest(transcript);
@@ -869,7 +1336,7 @@
         // ============================================
         async function processAIRequest(prompt) {
             try {
-                logToTerminal('Trinity AI обрабатывает запрос...', 'sys');
+                addMessage('Обработка запроса...', 'system');
                 
                 // Системный промпт без смайликов и с четкими инструкциями
                 const systemPrompt = SystemState.language === 'ru' 
@@ -929,25 +1396,25 @@
                 // Очищаем текст от возможных остатков формата
                 const cleanText = txt.replace(/Commands:\s*\w+/i, '').trim();
                 
-                logToTerminal(`PIXEL: ${cleanText}`, 'ai');
+                addMessage(cleanText, 'ai', 'PIXEL');
 
                 // Отправляем команду на ESP32 если есть подключение
-                if (cmd !== "NULL" && cmd !== "null" && SystemState.espConnected && SystemState.espIp) {
+                if ((cmd === "LED_ON" || cmd === "LED_OFF") && SystemState.espConnected && SystemState.espIp) {
                     try {
                         // Используем img для отправки команды (обход CORS)
                         const img = new Image();
                         img.src = `http://${SystemState.espIp}/command?cmd=${encodeURIComponent(cmd)}&_=${Date.now()}`;
                         
                         img.onload = () => {
-                            logToTerminal(`Команда [${cmd}] отправлена на ESP32`, 'sys');
+                            addMessage(`Команда [${cmd}] отправлена на ESP32`, 'system');
                         };
                         
                         img.onerror = () => {
-                            logToTerminal(`Ошибка отправки команды на ESP32`, 'err');
+                            addMessage(`Ошибка отправки команды на ESP32`, 'error');
                         };
                         
                     } catch (e) {
-                        logToTerminal(`Ошибка отправки команды: ${e.message}`, 'err');
+                        addMessage(`Ошибка отправки команды: ${e.message}`, 'error');
                     }
                 }
 
@@ -955,16 +1422,12 @@
                 speakText(cleanText);
 
             } catch (error) {
-                logToTerminal(`ОШИБКА: ${error.message}`, 'err');
+                console.error('Ошибка AI:', error);
+                addMessage(`Ошибка: ${error.message}`, 'error');
                 
-                // Возвращаемся к прослушиванию
+                // Возвращаемся к прослушиванию активационной фразы
                 setTimeout(() => {
-                    if (SystemState.voiceEnabled) {
-                        SystemState.listeningForActivation = true;
-                        updateStatus(SystemState.translations[SystemState.language].statusListeningName, 'active');
-                        updateVoiceStatus(SystemState.translations[SystemState.language].voiceWaiting);
-                        startRecognition();
-                    }
+                    resetToActivationMode();
                 }, 1000);
             }
         }
@@ -985,39 +1448,98 @@
             
             utterance.onstart = () => {
                 SystemState.isSpeaking = true;
-                updateVoiceStatus(SystemState.translations[SystemState.language].voiceSpeaking);
+                updateStatusDisplay();
+                updateVoiceStatus('speaking');
             };
             
             utterance.onend = () => {
                 SystemState.isSpeaking = false;
                 SystemState.isProcessing = false;
                 
-                // После ответа переходим в режим ожидания команды
-                SystemState.listeningForCommand = true;
-                updateStatus(SystemState.translations[SystemState.language].statusListeningCmd, 'active');
-                updateVoiceStatus(SystemState.translations[SystemState.language].voiceReady);
-                
-                // Запускаем распознавание для команды
-                if (SystemState.voiceEnabled) {
-                    startRecognition();
-                }
+                // После ответа возвращаемся к ожиданию активационной фразы
+                setTimeout(() => {
+                    resetToActivationMode();
+                }, 500);
             };
             
             utterance.onerror = () => {
                 SystemState.isSpeaking = false;
                 SystemState.isProcessing = false;
                 
-                // В случае ошибки всё равно переходим к ожиданию команды
-                SystemState.listeningForCommand = true;
-                updateStatus(SystemState.translations[SystemState.language].statusListeningCmd, 'active');
-                updateVoiceStatus(SystemState.translations[SystemState.language].voiceReady);
-                
-                if (SystemState.voiceEnabled) {
-                    startRecognition();
-                }
+                // В случае ошибки возвращаемся к ожиданию активации
+                setTimeout(() => {
+                    resetToActivationMode();
+                }, 500);
             };
             
             window.speechSynthesis.speak(utterance);
+        }
+
+        function resetToActivationMode() {
+            SystemState.listeningForActivation = true;
+            SystemState.listeningForCommand = false;
+            SystemState.isProcessing = false;
+            
+            updateStatusDisplay();
+            updateVoiceStatus('waiting');
+            
+            // Запускаем распознавание для активации
+            if (SystemState.voiceEnabled && SystemState.speechRecognition) {
+                startRecognition();
+            }
+            
+            addMessage('Ожидание активационной фразы...', 'system');
+        }
+
+        // ============================================
+        // ПОДКЛЮЧЕНИЕ ESP32
+        // ============================================
+        async function connectToESP32() {
+            const espIp = document.getElementById('espIp').value.trim();
+            
+            if (!espIp) {
+                addMessage('Введите IP адрес ESP32', 'error');
+                return;
+            }
+            
+            SystemState.espIp = espIp;
+            SystemState.espTesting = true;
+            updateStatusDisplay();
+            
+            addMessage('Подключение к ESP32...', 'system');
+            
+            try {
+                // Используем таймаут для проверки подключения
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                // Пробуем отправить простой запрос для проверки подключения
+                const response = await fetch(`http://${espIp}/`, {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    signal: controller.signal
+                }).catch(() => null);
+                
+                clearTimeout(timeoutId);
+                
+                // Сохраняем IP в localStorage
+                localStorage.setItem('neural_esp_ip', espIp);
+                
+                SystemState.espConnected = true;
+                SystemState.espTesting = false;
+                updateStatusDisplay();
+                
+                addMessage('✓ ESP32 подключен', 'system');
+                
+            } catch (error) {
+                SystemState.espTesting = false;
+                SystemState.espConnected = false;
+                updateStatusDisplay();
+                
+                const t = SystemState.translations[SystemState.language];
+                addMessage(t.espErrorMsg, 'error');
+                console.error('Ошибка подключения к ESP32:', error);
+            }
         }
 
         // ============================================
@@ -1027,7 +1549,7 @@
             const apiKey = document.getElementById('apiKey').value.trim();
             
             if (!apiKey) {
-                logToTerminal('Введите API ключ OpenRouter!', 'err');
+                addMessage('Введите API ключ OpenRouter!', 'error');
                 return;
             }
             
@@ -1037,12 +1559,12 @@
             // Блокируем кнопку
             const initBtn = document.getElementById('initBtn');
             initBtn.disabled = true;
-            initBtn.innerHTML = '<span>⏳</span><span>ИНИЦИАЛИЗАЦИЯ...</span>';
+            initBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>ИНИЦИАЛИЗАЦИЯ...</span>';
             
-            updateStatus('INITIALIZING', 'thinking');
+            updateGlobalStatus('ИНИЦИАЛИЗАЦИЯ', 'active');
             
             try {
-                // Проверяем API ключ и доступность модели
+                // Проверяем API ключ
                 const testResponse = await fetch('https://openrouter.ai/api/v1/models', {
                     headers: { 
                         'Authorization': `Bearer ${apiKey}`,
@@ -1060,11 +1582,11 @@
                 );
                 
                 if (!trinityModel) {
-                    logToTerminal('⚠ Модель Trinity может быть недоступна с вашим ключом', 'warning');
+                    addMessage('⚠ Модель Trinity может быть недоступна с вашим ключом', 'warning');
                 }
                 
-                logToTerminal('✓ API ключ проверен', 'sys');
-                logToTerminal('Используется модель: arcee-ai/trinity-large-preview:free', 'sys');
+                addMessage('✓ API ключ проверен', 'system');
+                addMessage('Используется модель: arcee-ai/trinity-large-preview:free', 'system');
                 
                 // Инициализируем распознавание речи
                 const speechInit = await initializeSpeechRecognition();
@@ -1075,41 +1597,47 @@
                 // Активируем систему
                 SystemState.systemActive = true;
                 
-                // Показываем элементы управления голосом и ESP32
+                // Показываем элементы управления
                 document.getElementById('espSection').style.display = 'block';
-                document.getElementById('voiceControls').style.display = 'flex';
+                document.getElementById('voiceControlSection').style.display = 'block';
+                document.getElementById('quickActions').style.display = 'grid';
                 
                 // Обновляем интерфейс
                 updateInterfaceLanguage();
-                updateStatus(SystemState.translations[SystemState.language].statusReady, 'active');
-                updateVoiceStatus(SystemState.translations[SystemState.language].voiceWaiting);
+                updateStatusDisplay();
                 
-                logToTerminal('✓ Система активирована', 'sys');
-                logToTerminal('Активационные фразы: "пиксель" или "pixel"', 'sys');
-                logToTerminal(`Язык: ${SystemState.language.toUpperCase()}`, 'sys');
-                logToTerminal('Для управления устройствами используйте команды: LED_ON, LED_OFF', 'sys');
+                addMessage('✓ Система инициализирована', 'system');
+                addMessage('Активационные фразы: "пиксель" или "pixel"', 'system');
+                addMessage(`Язык: ${SystemState.language.toUpperCase()}`, 'system');
                 
                 // Включаем Wake Lock для мобильных устройств
                 if ('wakeLock' in navigator) {
                     try {
                         SystemState.wakeLock = await navigator.wakeLock.request('screen');
-                        logToTerminal('✓ Wake Lock активирован', 'sys');
+                        document.getElementById('wakeLockIndicator').classList.add('active');
+                        addMessage('✓ Wake Lock активирован', 'system');
                     } catch (err) {
                         // Игнорируем ошибку Wake Lock
                     }
                 }
                 
+                // Запускаем визуализатор
+                if (SystemState.visualizerInterval) {
+                    clearInterval(SystemState.visualizerInterval);
+                }
+                SystemState.visualizerInterval = setInterval(updateVisualizer, 100);
+                
             } catch (error) {
-                logToTerminal(`Ошибка инициализации: ${error.message}`, 'err');
+                addMessage(`Ошибка инициализации: ${error.message}`, 'error');
                 initBtn.disabled = false;
-                initBtn.innerHTML = '<span>⚡</span><span>ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>';
-                updateStatus('ERROR', 'ready');
+                initBtn.innerHTML = '<i class="fas fa-rocket"></i><span id="initText">ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>';
+                updateGlobalStatus('ОШИБКА', 'ready');
             }
         }
 
         async function toggleVoiceControl() {
             if (!SystemState.systemActive) {
-                logToTerminal('Сначала инициализируйте систему', 'err');
+                addMessage('Сначала инициализируйте систему', 'error');
                 return;
             }
             
@@ -1119,15 +1647,15 @@
             if (!SystemState.voiceEnabled) {
                 // Включаем голосовое управление
                 SystemState.voiceEnabled = true;
-                voiceToggleBtn.innerHTML = '<span>🔇</span><span>' + t.disableVoice + '</span>';
-                logToTerminal(t.voiceEnabledMsg, 'sys');
+                voiceToggleBtn.innerHTML = '<i class="fas fa-microphone-slash"></i><span>' + t.voiceToggleOffText + '</span>';
+                addMessage(t.voiceEnabledMsg, 'system');
                 
                 // Начинаем слушать активационную фразу
                 SystemState.listeningForActivation = true;
                 SystemState.listeningForCommand = false;
                 
-                updateStatus(t.statusListeningName, 'active');
-                updateVoiceStatus(t.voiceWaiting);
+                updateStatusDisplay();
+                updateVoiceStatus('waiting');
                 
                 // Запускаем распознавание
                 startRecognition();
@@ -1135,8 +1663,8 @@
             } else {
                 // Выключаем голосовое управление
                 SystemState.voiceEnabled = false;
-                voiceToggleBtn.innerHTML = '<span>🎤</span><span>' + t.enableVoice + '</span>';
-                logToTerminal(t.voiceDisabledMsg, 'sys');
+                voiceToggleBtn.innerHTML = '<i class="fas fa-microphone"></i><span>' + t.voiceToggleText + '</span>';
+                addMessage(t.voiceDisabledMsg, 'system');
                 
                 // Останавливаем распознавание
                 if (SystemState.speechRecognition) {
@@ -1148,8 +1676,8 @@
                     window.speechSynthesis.cancel();
                 }
                 
-                updateStatus(t.statusReady, 'active');
-                updateVoiceStatus(t.voiceDisabled);
+                updateStatusDisplay();
+                updateVoiceStatus('disabled');
                 
                 // Сбрасываем состояния
                 SystemState.listeningForActivation = false;
@@ -1166,7 +1694,7 @@
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     
-                    logToTerminal(t.microphoneTestSuccess, 'sys');
+                    addMessage(t.microphoneTestSuccess, 'system');
                     
                     // Освобождаем поток
                     stream.getTracks().forEach(track => track.stop());
@@ -1174,8 +1702,114 @@
                     throw new Error('API микрофона не поддерживается');
                 }
             } catch (error) {
-                logToTerminal(t.microphoneTestFail, 'err');
+                addMessage(t.microphoneTestFail, 'error');
             }
+        }
+
+        async function testConnections() {
+            if (!SystemState.systemActive) {
+                addMessage('Система не инициализирована', 'error');
+                return;
+            }
+            
+            const t = SystemState.translations[SystemState.language];
+            addMessage('Тестирование соединений...', 'system');
+            
+            // Тест AI
+            try {
+                await fetch('https://openrouter.ai/api/v1/auth/key', {
+                    headers: { 'Authorization': `Bearer ${SystemState.apiKey}` }
+                });
+                addMessage('✓ AI соединение: OK', 'system');
+            } catch {
+                addMessage('✗ AI соединение: ОШИБКА', 'error');
+            }
+            
+            // Тест ESP32
+            if (SystemState.espIp && SystemState.espConnected) {
+                try {
+                    const img = new Image();
+                    img.src = `http://${SystemState.espIp}/?t=${Date.now()}`;
+                    
+                    img.onload = () => {
+                        addMessage('✓ ESP32: OK', 'system');
+                    };
+                    
+                    img.onerror = () => {
+                        addMessage('✗ ESP32: ОШИБКА', 'error');
+                    };
+                } catch (error) {
+                    addMessage('✗ ESP32: ОШИБКА', 'error');
+                }
+            }
+            
+            addMessage('Тестирование завершено', 'system');
+        }
+
+        function resetSystem() {
+            // Останавливаем все процессы
+            if (SystemState.speechRecognition) {
+                SystemState.speechRecognition.stop();
+            }
+            
+            if (SystemState.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            
+            if (SystemState.visualizerInterval) {
+                clearInterval(SystemState.visualizerInterval);
+                SystemState.visualizerInterval = null;
+            }
+            
+            if (SystemState.wakeLock) {
+                SystemState.wakeLock.release();
+                SystemState.wakeLock = null;
+                document.getElementById('wakeLockIndicator').classList.remove('active');
+            }
+            
+            // Сбрасываем состояние
+            SystemState.systemActive = false;
+            SystemState.voiceEnabled = false;
+            SystemState.listeningForActivation = false;
+            SystemState.listeningForCommand = false;
+            SystemState.isProcessing = false;
+            SystemState.isSpeaking = false;
+            SystemState.espConnected = false;
+            SystemState.espTesting = false;
+            
+            // Сбрасываем UI
+            updateInterfaceLanguage();
+            updateStatusDisplay();
+            
+            document.getElementById('initBtn').disabled = false;
+            document.getElementById('initBtn').innerHTML = '<i class="fas fa-rocket"></i><span id="initText">ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>';
+            
+            document.getElementById('espSection').style.display = 'none';
+            document.getElementById('voiceControlSection').style.display = 'none';
+            document.getElementById('quickActions').style.display = 'none';
+            
+            document.getElementById('voiceVisualizer').innerHTML = '';
+            
+            const t = SystemState.translations[SystemState.language];
+            addMessage(t.systemReset, 'system');
+        }
+
+        function clearChat() {
+            const messagesWrapper = document.getElementById('messagesWrapper');
+            
+            // Сохраняем первые три системных сообщения
+            const systemMessages = Array.from(messagesWrapper.querySelectorAll('.message')).slice(0, 3);
+            messagesWrapper.innerHTML = '';
+            
+            // Добавляем обратно системные сообщения
+            systemMessages.forEach(msg => {
+                messagesWrapper.appendChild(msg);
+            });
+            
+            SystemState.logEntries = 3;
+            updateMemoryStatus();
+            
+            addMessage('Чат очищен', 'system');
         }
 
         // ============================================
@@ -1183,9 +1817,9 @@
         // ============================================
         document.addEventListener('DOMContentLoaded', () => {
             // Загружаем сохраненные настройки
-            const savedApiKey = localStorage.getItem('pixel_api_key');
-            const savedEspIp = localStorage.getItem('pixel_esp_ip');
-            const savedLanguage = localStorage.getItem('pixel_language') || 'ru';
+            const savedApiKey = localStorage.getItem('neural_api_key');
+            const savedEspIp = localStorage.getItem('neural_esp_ip');
+            const savedLanguage = localStorage.getItem('neural_language') || 'ru';
             
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
             if (savedEspIp) {
@@ -1198,11 +1832,19 @@
             
             // Автосохранение настроек
             document.getElementById('apiKey').addEventListener('input', (e) => {
-                localStorage.setItem('pixel_api_key', e.target.value);
+                localStorage.setItem('neural_api_key', e.target.value);
             });
             
             document.getElementById('espIp').addEventListener('input', (e) => {
-                localStorage.setItem('pixel_esp_ip', e.target.value);
+                localStorage.setItem('neural_esp_ip', e.target.value);
+            });
+            
+            // Сохранение языка
+            document.querySelectorAll('.lang-option').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const lang = this.textContent.trim() === 'РУССКИЙ' ? 'ru' : 'en';
+                    localStorage.setItem('neural_language', lang);
+                });
             });
             
             // Быстрая отправка по Enter
@@ -1214,6 +1856,18 @@
                 if (e.key === 'Enter') connectToESP32();
             });
             
+            // Обновление времени
+            function updateTime() {
+                const now = new Date();
+                document.getElementById('currentTime').textContent = now.toLocaleTimeString('ru-RU', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+            setInterval(updateTime, 1000);
+            updateTime();
+            
             // Восстановление при возврате на вкладку
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible' && SystemState.voiceEnabled) {
@@ -1221,6 +1875,7 @@
                     if ('wakeLock' in navigator && !SystemState.wakeLock) {
                         navigator.wakeLock.request('screen').then(wl => {
                             SystemState.wakeLock = wl;
+                            document.getElementById('wakeLockIndicator').classList.add('active');
                         });
                     }
                     
@@ -1229,27 +1884,23 @@
                         setTimeout(() => {
                             if (SystemState.voiceEnabled) {
                                 startRecognition();
-                                logToTerminal('Распознавание восстановлено', 'sys');
+                                addMessage('Распознавание восстановлено', 'system');
                             }
                         }, 500);
                     }
                 }
             });
             
-            logToTerminal('PIXEL AI: Trinity Edition загружен', 'sys');
-            logToTerminal('Модель: arcee-ai/trinity-large-preview:free', 'sys');
-            logToTerminal('Готов к инициализации...', 'sys');
-        });
-
-        // Защита от случайного закрытия
-        window.addEventListener('beforeunload', (e) => {
-            if (SystemState.voiceEnabled) {
-                e.preventDefault();
-                e.returnValue = SystemState.language === 'ru' 
-                    ? 'Голосовое управление активно. Вы уверены, что хотите покинуть страницу?' 
-                    : 'Voice control is active. Are you sure you want to leave the page?';
-                return e.returnValue;
-            }
+            // Предотвращаем закрытие страницы при активной системе
+            window.addEventListener('beforeunload', (e) => {
+                if (SystemState.voiceEnabled) {
+                    e.preventDefault();
+                    e.returnValue = SystemState.language === 'ru' 
+                        ? 'Голосовое управление активно. Вы уверены, что хотите покинуть страницу?' 
+                        : 'Voice control is active. Are you sure you want to leave the page?';
+                    return e.returnValue;
+                }
+            });
         });
     </script>
 </body>
