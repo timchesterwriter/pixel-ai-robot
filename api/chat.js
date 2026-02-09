@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       headers: {
         'Authorization': `Bearer ${userKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': req.headers.origin || 'https://pixel-ai.vercel.app',
+        'HTTP-Referer': req.headers.origin || 'https://pixel-ai-robot.vercel.app',
         'X-Title': 'Pixel AI'
       },
       body: JSON.stringify({
