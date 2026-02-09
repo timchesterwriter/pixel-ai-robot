@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: DeepSeek R1 Edition</title>
+    <title>PIXEL AI: Trinity Edition</title>
     <style>
         :root {
             --neon-primary: #00ff9d;
@@ -79,6 +79,16 @@
             animation: pulse 2s infinite;
         }
 
+        .status-dot.connected {
+            background: var(--neon-primary);
+            box-shadow: 0 0 10px var(--neon-primary);
+        }
+
+        .status-dot.disconnected {
+            background: var(--neon-warning);
+            box-shadow: 0 0 5px var(--neon-warning);
+        }
+
         .status-dot.thinking {
             background: #00d2ff;
             box-shadow: 0 0 10px #00d2ff;
@@ -131,6 +141,15 @@
             border-left: 2px solid var(--neon-warning);
             padding-left: 10px;
             background: rgba(255, 71, 87, 0.05);
+            padding: 10px 15px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning {
+            color: #ffaa00;
+            border-left: 2px solid #ffaa00;
+            padding-left: 10px;
+            background: rgba(255, 170, 0, 0.05);
             padding: 10px 15px;
             border-radius: 0 8px 8px 0;
         }
@@ -224,6 +243,17 @@
 
         .btn-secondary:hover:not(:disabled) {
             background: var(--neon-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-esp {
+            background: transparent;
+            color: var(--neon-secondary);
+            border: 1px solid var(--neon-secondary);
+        }
+
+        .btn-esp:hover:not(:disabled) {
+            background: var(--neon-secondary);
             color: var(--bg-primary);
         }
 
@@ -324,7 +354,7 @@
 </head>
 <body>
     <div class="status-bar">
-        <div class="logo">PIXEL AI: DeepSeek R1 <span class="blink">_</span></div>
+        <div class="logo">PIXEL AI: Trinity Edition <span class="blink">_</span></div>
         <div class="status-indicators">
             <div class="status-item">
                 <div class="status-dot" id="statusDot"></div>
@@ -335,13 +365,16 @@
                 <span id="currentLang">RU</span>
             </div>
             <div class="status-item">
-                <span>MODE:</span>
-                <span id="currentMode">VOICE</span>
+                <span>ESP32:</span>
+                <div class="status-dot disconnected" id="espStatusDot"></div>
+                <span id="espStatusText">DISCONNECTED</span>
             </div>
         </div>
     </div>
 
     <div id="terminal">
+        <div class="warning">> ВНИМАНИЕ: Используется модель arcee-ai/trinity-large-preview:free</div>
+        <div class="warning">> Убедитесь, что ваш API ключ OpenRouter имеет доступ к этой модели</div>
         <div class="sys">> Система загружена. Введите API ключ OpenRouter для инициализации.</div>
         <div class="sys">> Получите ключ на: https://openrouter.ai</div>
         <div class="sys">> Активационные фразы: "пиксель" (русский) или "pixel" (английский)</div>
@@ -353,21 +386,27 @@
             <input type="password" id="apiKey" placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx">
         </div>
         
-        <div class="input-group">
-            <div class="input-label">ESP32 IP АДРЕС (ОПЦИОНАЛЬНО)</div>
-            <input type="text" id="espIp" placeholder="192.168.1.100">
+        <div class="button-group">
+            <button onclick="initializeSystem()" id="initBtn">
+                <span>⚡</span>
+                <span>ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>
+            </button>
+        </div>
+        
+        <div class="input-group" id="espSection" style="display: none;">
+            <div class="input-label">ESP32 IP АДРЕС</div>
+            <div class="button-group">
+                <input type="text" id="espIp" placeholder="192.168.1.100" style="flex: 3;">
+                <button onclick="connectToESP32()" id="espConnectBtn" class="btn-esp" style="flex: 1;">
+                    <span>🔗</span>
+                    <span>ПОДКЛЮЧИТЬ</span>
+                </button>
+            </div>
         </div>
         
         <div class="language-selector">
             <button class="lang-btn active" onclick="setLanguage('ru')">РУССКИЙ</button>
             <button class="lang-btn" onclick="setLanguage('en')">ENGLISH</button>
-        </div>
-        
-        <div class="button-group">
-            <button onclick="initializeSystem()" id="initBtn">
-                <span>⚡</span>
-                <span>ЗАПУСТИТЬ СИСТЕМУ</span>
-            </button>
         </div>
         
         <div class="voice-status" id="voiceStatus">
@@ -403,6 +442,8 @@
             listeningForCommand: false,
             isProcessing: false,
             isSpeaking: false,
+            espConnected: false,
+            espTesting: false,
             
             // Объекты
             speechRecognition: null,
@@ -413,17 +454,26 @@
             translations: {
                 ru: {
                     // Сообщения интерфейса
-                    statusReady: "READY",
+                    statusReady: "ГОТОВ",
                     statusListeningName: "СЛУШАЮ (ИМЯ)",
                     statusReplying: "ОТВЕЧАЮ",
                     statusListeningCmd: "СЛУШАЮ (КОМАНДА)",
                     statusThinking: "ДУМАЮ",
                     
                     // Кнопки
-                    launchSystem: "ЗАПУСТИТЬ СИСТЕМУ",
+                    initSystem: "ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ",
                     enableVoice: "ВКЛЮЧИТЬ ГОЛОС",
                     disableVoice: "ВЫКЛЮЧИТЬ ГОЛОС",
                     testMic: "ТЕСТ МИКРОФОНА",
+                    connectESP: "ПОДКЛЮЧИТЬ",
+                    connectingESP: "ПОДКЛЮЧЕНИЕ...",
+                    disconnectESP: "ОТКЛЮЧИТЬ",
+                    
+                    // Статус ESP32
+                    espConnecting: "ПОДКЛЮЧЕНИЕ...",
+                    espConnected: "ПОДКЛЮЧЕН",
+                    espDisconnected: "ОТКЛЮЧЕН",
+                    espError: "ОШИБКА",
                     
                     // Статус голоса
                     voiceDisabled: "Голосовое управление отключено",
@@ -440,7 +490,10 @@
                     voiceEnabledMsg: "Голосовое управление включено",
                     voiceDisabledMsg: "Голосовое управление выключено",
                     microphoneTestSuccess: "Микрофон работает нормально",
-                    microphoneTestFail: "Не удалось получить доступ к микрофону"
+                    microphoneTestFail: "Не удалось получить доступ к микрофону",
+                    espConnectedMsg: "ESP32 подключен",
+                    espDisconnectedMsg: "ESP32 отключен",
+                    espErrorMsg: "Ошибка подключения к ESP32"
                 },
                 en: {
                     // Interface messages
@@ -451,10 +504,19 @@
                     statusThinking: "THINKING",
                     
                     // Buttons
-                    launchSystem: "LAUNCH SYSTEM",
+                    initSystem: "INITIALIZE SYSTEM",
                     enableVoice: "ENABLE VOICE",
                     disableVoice: "DISABLE VOICE",
                     testMic: "TEST MICROPHONE",
+                    connectESP: "CONNECT",
+                    connectingESP: "CONNECTING...",
+                    disconnectESP: "DISCONNECT",
+                    
+                    // ESP32 Status
+                    espConnecting: "CONNECTING...",
+                    espConnected: "CONNECTED",
+                    espDisconnected: "DISCONNECTED",
+                    espError: "ERROR",
                     
                     // Voice status
                     voiceDisabled: "Voice control disabled",
@@ -471,7 +533,10 @@
                     voiceEnabledMsg: "Voice control enabled",
                     voiceDisabledMsg: "Voice control disabled",
                     microphoneTestSuccess: "Microphone working normally",
-                    microphoneTestFail: "Failed to access microphone"
+                    microphoneTestFail: "Failed to access microphone",
+                    espConnectedMsg: "ESP32 connected",
+                    espDisconnectedMsg: "ESP32 disconnected",
+                    espErrorMsg: "Error connecting to ESP32"
                 }
             }
         };
@@ -507,6 +572,34 @@
             }
         }
 
+        function updateESPStatus(connected, connecting = false) {
+            const espStatusDot = document.getElementById('espStatusDot');
+            const espStatusText = document.getElementById('espStatusText');
+            const espConnectBtn = document.getElementById('espConnectBtn');
+            const t = SystemState.translations[SystemState.language];
+            
+            if (connecting) {
+                espStatusDot.className = 'status-dot thinking';
+                espStatusText.textContent = t.espConnecting;
+                espConnectBtn.disabled = true;
+                espConnectBtn.innerHTML = '<span>⏳</span><span>' + t.connectingESP + '</span>';
+            } else if (connected) {
+                SystemState.espConnected = true;
+                espStatusDot.className = 'status-dot connected';
+                espStatusText.textContent = t.espConnected;
+                espConnectBtn.disabled = false;
+                espConnectBtn.innerHTML = '<span>🔗</span><span>' + t.disconnectESP + '</span>';
+                logToTerminal(t.espConnectedMsg, 'sys');
+            } else {
+                SystemState.espConnected = false;
+                espStatusDot.className = 'status-dot disconnected';
+                espStatusText.textContent = t.espDisconnected;
+                espConnectBtn.disabled = false;
+                espConnectBtn.innerHTML = '<span>🔗</span><span>' + t.connectESP + '</span>';
+                logToTerminal(t.espDisconnectedMsg, 'sys');
+            }
+        }
+
         function updateVoiceStatus(message) {
             const voiceStatus = document.getElementById('voiceStatus');
             voiceStatus.textContent = message;
@@ -538,7 +631,7 @@
             const t = SystemState.translations[SystemState.language];
             
             // Обновляем кнопки
-            document.getElementById('initBtn').querySelector('span:nth-child(2)').textContent = t.launchSystem;
+            document.getElementById('initBtn').querySelector('span:nth-child(2)').textContent = t.initSystem;
             
             const voiceToggleBtn = document.getElementById('voiceToggleBtn');
             if (voiceToggleBtn) {
@@ -552,6 +645,9 @@
             if (document.getElementById('testMicBtn')) {
                 document.getElementById('testMicBtn').querySelector('span:nth-child(2)').textContent = t.testMic;
             }
+            
+            // Обновляем ESP32 статус
+            updateESPStatus(SystemState.espConnected, SystemState.espTesting);
             
             // Обновляем статус голоса
             if (SystemState.voiceEnabled) {
@@ -570,7 +666,57 @@
         }
 
         // ============================================
-        // СИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ (УПРОЩЕННАЯ)
+        // ПОДКЛЮЧЕНИЕ ESP32
+        // ============================================
+        async function connectToESP32() {
+            const espIp = document.getElementById('espIp').value.trim();
+            
+            if (!espIp) {
+                logToTerminal('Введите IP адрес ESP32', 'err');
+                return;
+            }
+            
+            SystemState.espIp = espIp;
+            SystemState.espTesting = true;
+            updateESPStatus(false, true);
+            
+            logToTerminal('Попытка подключения к ESP32...', 'sys');
+            
+            try {
+                // Используем таймаут для проверки подключения
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                // Пробуем отправить простой запрос для проверки подключения
+                const response = await fetch(`http://${espIp}/`, {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    signal: controller.signal
+                }).catch(() => null);
+                
+                clearTimeout(timeoutId);
+                
+                // Сохраняем IP в localStorage
+                localStorage.setItem('pixel_esp_ip', espIp);
+                
+                SystemState.espConnected = true;
+                SystemState.espTesting = false;
+                updateESPStatus(true);
+                
+                logToTerminal('✓ ESP32 доступен', 'sys');
+                
+            } catch (error) {
+                SystemState.espTesting = false;
+                updateESPStatus(false);
+                
+                const t = SystemState.translations[SystemState.language];
+                logToTerminal(t.espErrorMsg, 'err');
+                console.error('Ошибка подключения к ESP32:', error);
+            }
+        }
+
+        // ============================================
+        // СИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ
         // ============================================
         async function initializeSpeechRecognition() {
             // Проверяем поддержку
@@ -719,11 +865,26 @@
         }
 
         // ============================================
-        // AI ОБРАБОТКА
+        // AI ОБРАБОТКА (ARCEE TRINITY)
         // ============================================
         async function processAIRequest(prompt) {
             try {
-                logToTerminal('DeepSeek R1 анализирует...', 'sys');
+                logToTerminal('Trinity AI обрабатывает запрос...', 'sys');
+                
+                // Системный промпт без смайликов и с четкими инструкциями
+                const systemPrompt = SystemState.language === 'ru' 
+                    ? `Ты робот Пиксель. Отвечай максимально кратко (1-2 фразы). 
+                       Не используй смайлики или эмодзи в ответах.
+                       Если нужно управлять устройствами, используй команды:
+                       LED_ON - включить свет, LED_OFF - выключить свет.
+                       Формат ответа строго: Text: [твой текст ответа] Commands: [команда или null]
+                       Только текст после "Text:" будет озвучен и показан пользователю.`
+                    : `You are Pixel robot. Respond very briefly (1-2 phrases).
+                       Do not use smileys or emojis in responses.
+                       If you need to control devices, use commands:
+                       LED_ON - turn on lights, LED_OFF - turn off lights.
+                       Response format strictly: Text: [your response text] Commands: [command or null]
+                       Only text after "Text:" will be spoken and shown to the user.`;
                 
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                     method: "POST",
@@ -733,50 +894,65 @@
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        "model": "deepseek/deepseek-r1",
+                        "model": "arcee-ai/trinity-large-preview:free",
                         "messages": [
                             {
                                 "role": "system",
-                                "content": SystemState.language === 'ru' 
-                                    ? "Ты робот Пиксель. Отвечай максимально кратко (1-2 фразы). Если юзер просит включить/выключить свет, используй команды LED_ON или LED_OFF. Формат ответа строго: Text: [твой ответ] Commands: [команда или null]"
-                                    : "You are Pixel robot. Respond very briefly (1-2 phrases). If user asks to turn on/off lights, use LED_ON or LED_OFF commands. Response format strictly: Text: [your response] Commands: [command or null]"
+                                "content": systemPrompt
                             },
                             { "role": "user", "content": prompt }
                         ],
-                        "temperature": 0.6
+                        "temperature": 0.7,
+                        "max_tokens": 150
                     })
                 });
 
                 const data = await response.json();
                 
-                if (data.error) throw new Error(data.error.message);
+                if (data.error) {
+                    throw new Error(data.error.message || 'Ошибка API');
+                }
+
+                if (!data.choices || !data.choices[0]) {
+                    throw new Error('Некорректный ответ от API');
+                }
 
                 const aiRaw = data.choices[0].message.content;
                 
-                // Очищаем ответ от <think> тегов
-                const cleanMsg = aiRaw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+                // Извлекаем текст и команду
+                const textMatch = aiRaw.match(/Text:\s*(.*?)(?:\s*Commands:|$)/i);
+                const commandMatch = aiRaw.match(/Commands:\s*(\w+)/i);
                 
-                const txt = cleanMsg.match(/Text:\s*(.*)/i)?.[1] || cleanMsg;
-                const cmd = cleanMsg.match(/Commands:\s*(\w+)/i)?.[1] || "null";
+                const txt = textMatch ? textMatch[1].trim() : aiRaw;
+                const cmd = commandMatch ? commandMatch[1].toUpperCase() : "null";
 
-                logToTerminal(`PIXEL: ${txt}`, 'ai');
+                // Очищаем текст от возможных остатков формата
+                const cleanText = txt.replace(/Commands:\s*\w+/i, '').trim();
+                
+                logToTerminal(`PIXEL: ${cleanText}`, 'ai');
 
-                // Отправляем команду на ESP32 если есть
-                if(cmd !== "null" && SystemState.espIp) {
+                // Отправляем команду на ESP32 если есть подключение
+                if (cmd !== "NULL" && cmd !== "null" && SystemState.espConnected && SystemState.espIp) {
                     try {
-                        await fetch(`http://${SystemState.espIp}/command`, { 
-                            method: "POST", 
-                            mode: "no-cors", 
-                            body: cmd 
-                        });
-                        logToTerminal(`Команда [${cmd}] отправлена на ESP32`, 'sys');
+                        // Используем img для отправки команды (обход CORS)
+                        const img = new Image();
+                        img.src = `http://${SystemState.espIp}/command?cmd=${encodeURIComponent(cmd)}&_=${Date.now()}`;
+                        
+                        img.onload = () => {
+                            logToTerminal(`Команда [${cmd}] отправлена на ESP32`, 'sys');
+                        };
+                        
+                        img.onerror = () => {
+                            logToTerminal(`Ошибка отправки команды на ESP32`, 'err');
+                        };
+                        
                     } catch (e) {
                         logToTerminal(`Ошибка отправки команды: ${e.message}`, 'err');
                     }
                 }
 
-                // Озвучиваем ответ
-                speakText(txt);
+                // Озвучиваем ответ (только текст, без команд)
+                speakText(cleanText);
 
             } catch (error) {
                 logToTerminal(`ОШИБКА: ${error.message}`, 'err');
@@ -849,7 +1025,6 @@
         // ============================================
         async function initializeSystem() {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const espIp = document.getElementById('espIp').value.trim();
             
             if (!apiKey) {
                 logToTerminal('Введите API ключ OpenRouter!', 'err');
@@ -858,7 +1033,6 @@
             
             // Сохраняем настройки
             SystemState.apiKey = apiKey;
-            SystemState.espIp = espIp;
             
             // Блокируем кнопку
             const initBtn = document.getElementById('initBtn');
@@ -868,16 +1042,29 @@
             updateStatus('INITIALIZING', 'thinking');
             
             try {
-                // Проверяем API ключ
-                const testResponse = await fetch('https://openrouter.ai/api/v1/auth/key', {
-                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                // Проверяем API ключ и доступность модели
+                const testResponse = await fetch('https://openrouter.ai/api/v1/models', {
+                    headers: { 
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
                 if (!testResponse.ok) {
-                    throw new Error('Неверный API ключ');
+                    throw new Error('Неверный API ключ или ошибка доступа к API');
+                }
+                
+                const models = await testResponse.json();
+                const trinityModel = models.data?.find(model => 
+                    model.id === 'arcee-ai/trinity-large-preview:free'
+                );
+                
+                if (!trinityModel) {
+                    logToTerminal('⚠ Модель Trinity может быть недоступна с вашим ключом', 'warning');
                 }
                 
                 logToTerminal('✓ API ключ проверен', 'sys');
+                logToTerminal('Используется модель: arcee-ai/trinity-large-preview:free', 'sys');
                 
                 // Инициализируем распознавание речи
                 const speechInit = await initializeSpeechRecognition();
@@ -888,7 +1075,8 @@
                 // Активируем систему
                 SystemState.systemActive = true;
                 
-                // Показываем элементы управления голосом
+                // Показываем элементы управления голосом и ESP32
+                document.getElementById('espSection').style.display = 'block';
                 document.getElementById('voiceControls').style.display = 'flex';
                 
                 // Обновляем интерфейс
@@ -899,6 +1087,7 @@
                 logToTerminal('✓ Система активирована', 'sys');
                 logToTerminal('Активационные фразы: "пиксель" или "pixel"', 'sys');
                 logToTerminal(`Язык: ${SystemState.language.toUpperCase()}`, 'sys');
+                logToTerminal('Для управления устройствами используйте команды: LED_ON, LED_OFF', 'sys');
                 
                 // Включаем Wake Lock для мобильных устройств
                 if ('wakeLock' in navigator) {
@@ -913,7 +1102,7 @@
             } catch (error) {
                 logToTerminal(`Ошибка инициализации: ${error.message}`, 'err');
                 initBtn.disabled = false;
-                initBtn.innerHTML = '<span>⚡</span><span>ЗАПУСТИТЬ СИСТЕМУ</span>';
+                initBtn.innerHTML = '<span>⚡</span><span>ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ</span>';
                 updateStatus('ERROR', 'ready');
             }
         }
@@ -999,7 +1188,10 @@
             const savedLanguage = localStorage.getItem('pixel_language') || 'ru';
             
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
-            if (savedEspIp) document.getElementById('espIp').value = savedEspIp;
+            if (savedEspIp) {
+                document.getElementById('espIp').value = savedEspIp;
+                SystemState.espIp = savedEspIp;
+            }
             
             // Устанавливаем язык
             setLanguage(savedLanguage);
@@ -1016,6 +1208,10 @@
             // Быстрая отправка по Enter
             document.getElementById('apiKey').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') initializeSystem();
+            });
+            
+            document.getElementById('espIp').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') connectToESP32();
             });
             
             // Восстановление при возврате на вкладку
@@ -1040,7 +1236,8 @@
                 }
             });
             
-            logToTerminal('PIXEL AI: DeepSeek R1 Edition загружен', 'sys');
+            logToTerminal('PIXEL AI: Trinity Edition загружен', 'sys');
+            logToTerminal('Модель: arcee-ai/trinity-large-preview:free', 'sys');
             logToTerminal('Готов к инициализации...', 'sys');
         });
 
