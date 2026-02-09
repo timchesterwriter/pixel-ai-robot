@@ -2,135 +2,119 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel AI - Голосовой ассистент</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0e14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Pixel AI - Управление умным домом</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* CSS Reset для мобильных */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-font-smoothing: antialiased;
+        }
+
         :root {
             --primary: #00ff9d;
+            --primary-dark: #00cc7d;
             --secondary: #0094ff;
             --accent: #ff00e5;
             --danger: #ff4757;
             --warning: #ffaa00;
             --success: #00d2ff;
+            --led-on: #00ff00;
+            --led-off: #ff4444;
             
             --bg-dark: #0a0e14;
-            --bg-darker: #05080c;
-            --bg-card: rgba(19, 24, 35, 0.8);
-            --bg-glass: rgba(255, 255, 255, 0.05);
+            --bg-card: #1a1f2e;
+            --bg-input: #131823;
             
             --text-primary: #ffffff;
             --text-secondary: #a0aec0;
-            --border: rgba(0, 255, 157, 0.1);
+            
+            --border: rgba(0, 255, 157, 0.15);
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 30px rgba(0, 255, 157, 0.2);
             
             --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
-            --gradient-accent: linear-gradient(135deg, var(--accent), var(--secondary));
-            --gradient-dark: linear-gradient(135deg, var(--bg-dark), var(--bg-darker));
+            --gradient-dark: linear-gradient(135deg, var(--bg-dark), #000);
             
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            --shadow-glow: 0 0 30px rgba(0, 255, 157, 0.2);
-            --shadow-glow-accent: 0 0 30px rgba(255, 0, 229, 0.2);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+            --safe-area-inset-top: env(safe-area-inset-top);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom);
         }
 
         body {
-            background: var(--bg-darker);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
             color: var(--text-primary);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
+            line-height: 1.5;
+            padding: var(--safe-area-inset-top) 0 var(--safe-area-inset-bottom);
             overflow-x: hidden;
-            line-height: 1.6;
+            position: relative;
         }
 
+        /* Градиентный фон */
         body::before {
             content: '';
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            right: 0;
+            bottom: 0;
             background: 
-                radial-gradient(circle at 10% 20%, rgba(0, 255, 157, 0.03) 0%, transparent 25%),
-                radial-gradient(circle at 90% 80%, rgba(0, 148, 255, 0.03) 0%, transparent 25%),
-                radial-gradient(circle at 50% 50%, rgba(255, 0, 229, 0.02) 0%, transparent 50%);
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 157, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 20%, rgba(0, 148, 255, 0.05) 0%, transparent 40%);
             z-index: -1;
         }
 
-        .grid-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            z-index: -1;
-            opacity: 0.3;
-        }
-
+        /* Контейнеры */
         .app-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 30px;
+            max-width: 100%;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* Header */
+        /* Шапка - фиксированная */
         .header {
-            grid-column: 1 / -1;
+            background: rgba(10, 14, 20, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 20px;
-            background: var(--bg-card);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            border: 1px solid var(--border);
-            margin-bottom: 20px;
-            box-shadow: var(--shadow);
+            justify-content: space-between;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .logo-icon {
-            width: 50px;
-            height: 50px;
+            width: 44px;
+            height: 44px;
             background: var(--gradient-primary);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
+            font-size: 20px;
             animation: float 3s ease-in-out infinite;
         }
 
-        .logo-icon::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            background: var(--gradient-primary);
-            border-radius: 14px;
-            z-index: -1;
-            filter: blur(10px);
-            opacity: 0.5;
-        }
-
         .logo-text {
-            font-size: 1.8rem;
+            font-size: 20px;
             font-weight: 700;
             background: var(--gradient-primary);
             -webkit-background-clip: text;
@@ -138,148 +122,25 @@
             background-clip: text;
         }
 
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 16px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 20px;
-            border: 1px solid var(--border);
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--danger);
-            animation: pulse 2s infinite;
-        }
-
-        .status-dot.active {
-            background: var(--success);
-            box-shadow: 0 0 10px var(--success);
-        }
-
-        /* Main Terminal */
-        .terminal-container {
-            background: var(--bg-card);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .terminal-header {
-            padding: 15px 20px;
-            background: rgba(0, 0, 0, 0.3);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .terminal-controls {
-            display: flex;
-            gap: 10px;
-        }
-
-        .control-btn {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .control-btn:hover {
-            transform: scale(1.1);
-        }
-
-        .close { background: #ff5f57; }
-        .minimize { background: #ffbd2e; }
-        .maximize { background: #28ca42; }
-
-        .terminal-title {
-            font-family: 'Courier New', monospace;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .terminal-content {
+        /* Основной контент - скроллится */
+        .main-content {
             flex: 1;
-            padding: 20px;
             overflow-y: auto;
-            max-height: 500px;
-            font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
-            font-size: 0.95rem;
-            line-height: 1.8;
+            padding: 20px;
+            padding-bottom: 120px;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
         }
 
-        .terminal-content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .terminal-content::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-        }
-
-        .terminal-content::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            margin-bottom: 15px;
-            padding-left: 15px;
-            border-left: 2px solid transparent;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .log-entry.system {
-            border-left-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .log-entry.ai {
-            border-left-color: var(--secondary);
-            color: var(--text-primary);
-        }
-
-        .log-entry.error {
-            border-left-color: var(--danger);
-            color: var(--danger);
-        }
-
-        .log-entry.command {
-            border-left-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .log-timestamp {
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            margin-right: 10px;
-        }
-
-        /* Control Panel */
-        .control-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .panel-card {
+        /* Карточки */
+        .card {
             background: var(--bg-card);
-            backdrop-filter: blur(10px);
             border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
             border: 1px solid var(--border);
-            padding: 25px;
             box-shadow: var(--shadow);
+            animation: slideUp 0.3s ease;
         }
 
         .card-title {
@@ -287,177 +148,245 @@
             align-items: center;
             gap: 10px;
             margin-bottom: 20px;
-            color: var(--text-primary);
-            font-size: 1.2rem;
+            font-size: 18px;
             font-weight: 600;
+            color: var(--text-primary);
         }
 
         .card-title i {
             color: var(--primary);
         }
 
+        /* Инпуты */
         .input-group {
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
 
         .input-label {
             display: block;
             margin-bottom: 8px;
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 14px;
             font-weight: 500;
         }
 
         .input-field {
             width: 100%;
-            padding: 12px 15px;
-            background: rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            background: var(--bg-input);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 12px;
             color: var(--text-primary);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
+            font-size: 16px;
             transition: all 0.3s;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .input-field:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: var(--shadow-glow);
+            box-shadow: 0 0 0 3px rgba(0, 255, 157, 0.1);
         }
 
-        .input-field::placeholder {
-            color: var(--text-secondary);
-            opacity: 0.7;
-        }
-
+        /* Кнопки */
         .btn {
             width: 100%;
-            padding: 14px;
+            padding: 18px;
             background: var(--gradient-primary);
             border: none;
-            border-radius: 10px;
-            color: var(--bg-darker);
-            font-weight: 600;
-            font-size: 1rem;
+            border-radius: 14px;
+            color: var(--bg-dark);
+            font-weight: 700;
+            font-size: 16px;
             cursor: pointer;
             transition: all 0.3s;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin-top: 10px;
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-glow);
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
         }
 
-        .btn:active {
-            transform: translateY(0);
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
         }
 
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
+            transform: none !important;
         }
 
         .btn-secondary {
-            background: var(--bg-glass);
+            background: transparent;
             color: var(--text-primary);
             border: 1px solid var(--border);
         }
 
-        .btn-danger {
-            background: var(--danger);
+        /* Терминал */
+        .terminal {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 16px;
         }
 
-        .voice-visualizer {
-            height: 100px;
+        .terminal::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .terminal::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            margin: 20px 0;
-            position: relative;
-            overflow: hidden;
+            border-radius: 3px;
         }
 
-        .visualizer-bar {
-            position: absolute;
-            bottom: 0;
-            width: 4px;
+        .terminal::-webkit-scrollbar-thumb {
             background: var(--primary);
-            border-radius: 2px 2px 0 0;
-            animation: visualizer 0.5s ease-out;
+            border-radius: 3px;
         }
 
-        .status-display {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+        .log-entry {
+            margin-bottom: 12px;
+            padding-left: 12px;
+            border-left: 2px solid transparent;
+            animation: fadeIn 0.3s ease;
+            word-break: break-word;
+        }
+
+        .log-entry.system { border-color: var(--primary); color: var(--primary); }
+        .log-entry.ai { border-color: var(--secondary); color: var(--text-primary); }
+        .log-entry.error { border-color: var(--danger); color: var(--danger); }
+        .log-entry.command { border-color: var(--accent); color: var(--accent); }
+        .log-entry.listen { border-color: var(--warning); color: var(--warning); }
+        .log-entry.esp32 { border-color: #ffaa00; color: #ffaa00; }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-right: 8px;
+            display: inline-block;
+            min-width: 75px;
+        }
+
+        /* Статус система */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
         }
 
         .status-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid var(--border);
         }
 
         .status-label {
+            font-size: 12px;
             color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .status-value {
+            font-size: 16px;
             font-weight: 600;
             font-family: 'JetBrains Mono', monospace;
         }
 
-        .status-value.active {
-            color: var(--success);
-        }
+        .status-value.active { color: var(--success); }
+        .status-value.inactive { color: var(--text-secondary); }
+        .status-value.error { color: var(--danger); }
+        .status-value.warning { color: var(--warning); }
 
-        .status-value.inactive {
-            color: var(--text-secondary);
-        }
-
-        /* Microphone Animation */
+        /* Кнопка микрофона - фиксированная внизу */
         .mic-container {
-            position: relative;
+            position: fixed;
+            bottom: calc(20px + var(--safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .mic-btn {
             width: 80px;
             height: 80px;
-            margin: 0 auto 20px;
-        }
-
-        .mic-icon {
-            width: 100%;
-            height: 100%;
             background: var(--gradient-primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            position: relative;
-            z-index: 2;
+            font-size: 28px;
+            color: var(--bg-dark);
+            margin: 0 auto;
+            cursor: pointer;
             transition: all 0.3s;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 255, 157, 0.3);
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .mic-icon.listening {
-            animation: pulse 1.5s infinite;
-            box-shadow: var(--shadow-glow);
+        .mic-btn.listening {
+            animation: pulse-glow 1.5s infinite;
+            box-shadow: 0 0 40px rgba(0, 255, 157, 0.5);
         }
 
+        .mic-btn:disabled {
+            background: var(--text-secondary);
+            box-shadow: none;
+            animation: none;
+            cursor: not-allowed;
+        }
+
+        .mic-label {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Волны микрофона */
         .mic-waves {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 100%;
-            height: 100%;
+            width: 120px;
+            height: 120px;
+            pointer-events: none;
         }
 
         .wave {
@@ -468,448 +397,893 @@
             border: 2px solid var(--primary);
             border-radius: 50%;
             opacity: 0;
+            width: 80px;
+            height: 80px;
         }
 
         .wave.active {
-            animation: wave 1.5s ease-out infinite;
+            animation: wave 2s ease-out infinite;
         }
 
-        /* Animations */
+        /* Визуализатор голоса */
+        .visualizer-container {
+            margin: 20px 0;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .visualizer {
+            height: 60px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 3px;
+            margin: 10px 0;
+        }
+
+        .bar {
+            width: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+            animation: visualizer 0.5s ease infinite alternate;
+        }
+
+        /* Управление светом */
+        .light-control {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .light-btn {
+            flex: 1;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .light-btn.on {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: var(--led-on);
+            color: var(--led-on);
+        }
+
+        .light-btn.off {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: var(--led-off);
+            color: var(--led-off);
+        }
+
+        /* Индикатор светодиода */
+        .led-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--led-off);
+            box-shadow: 0 0 10px var(--led-off);
+            transition: all 0.3s;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .led-indicator.on {
+            background: var(--led-on);
+            box-shadow: 0 0 20px var(--led-on);
+            animation: pulse-led 2s infinite;
+        }
+
+        /* Уведомления */
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100%);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid var(--border);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            max-width: 90%;
+            width: 400px;
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .notification.success { border-left: 4px solid var(--success); }
+        .notification.error { border-left: 4px solid var(--danger); }
+        .notification.warning { border-left: 4px solid var(--warning); }
+        .notification.info { border-left: 4px solid var(--primary); }
+
+        /* Анимации */
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-5px); }
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        @keyframes pulse-glow {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(0, 255, 157, 0.4);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(0, 255, 157, 0.6);
+                transform: scale(1.05);
+            }
         }
 
         @keyframes wave {
             0% {
-                width: 0;
-                height: 0;
+                width: 80px;
+                height: 80px;
                 opacity: 1;
             }
             100% {
-                width: 120px;
-                height: 120px;
+                width: 160px;
+                height: 160px;
                 opacity: 0;
-            }
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
             }
         }
 
         @keyframes visualizer {
-            0% {
-                height: 10%;
-                opacity: 0.5;
-            }
-            50% {
-                height: 100%;
-                opacity: 1;
-            }
-            100% {
-                height: 10%;
-                opacity: 0.5;
-            }
+            0% { height: 10%; opacity: 0.5; }
+            50% { height: 80%; opacity: 1; }
+            100% { height: 10%; opacity: 0.5; }
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .app-container {
-                grid-template-columns: 1fr;
-                padding: 10px;
-            }
-            
+        @keyframes pulse-led {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Адаптация для маленьких экранов */
+        @media (max-width: 480px) {
             .header {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
+                padding: 16px;
             }
             
-            .terminal-content {
-                max-height: 300px;
+            .main-content {
+                padding: 16px;
+                padding-bottom: 140px;
+            }
+            
+            .card {
+                padding: 16px;
+                border-radius: 16px;
+            }
+            
+            .mic-btn {
+                width: 70px;
+                height: 70px;
+                font-size: 24px;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .terminal {
+                height: 200px;
+                font-size: 13px;
+            }
+            
+            .light-control {
+                flex-direction: column;
             }
         }
 
-        /* Loading Spinner */
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(0, 255, 157, 0.3);
-            border-radius: 50%;
-            border-top-color: var(--primary);
-            animation: spin 1s ease-in-out infinite;
+        /* Портретная ориентация */
+        @media (orientation: portrait) {
+            .app-container {
+                max-height: 100vh;
+            }
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Notification */
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            background: var(--bg-card);
-            border-left: 4px solid var(--primary);
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            transform: translateX(150%);
-            transition: transform 0.3s ease-out;
-            z-index: 1000;
-        }
-
-        .notification.show {
-            transform: translateX(0);
-        }
-
-        .notification.success {
-            border-left-color: var(--success);
-        }
-
-        .notification.error {
-            border-left-color: var(--danger);
-        }
-
-        .notification.warning {
-            border-left-color: var(--warning);
+        /* Ландшафтная ориентация */
+        @media (orientation: landscape) and (max-height: 600px) {
+            .header {
+                padding: 12px 20px;
+            }
+            
+            .main-content {
+                padding-bottom: 100px;
+            }
+            
+            .mic-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 22px;
+            }
+            
+            .terminal {
+                height: 150px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="grid-bg"></div>
-    
     <div class="app-container">
-        <!-- Header -->
+        <!-- Шапка -->
         <header class="header">
             <div class="logo">
                 <div class="logo-icon">
                     <i class="fas fa-robot"></i>
                 </div>
                 <div>
-                    <h1 class="logo-text">Pixel AI Assistant</h1>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Голосовое управление через DeepSeek AI</p>
+                    <div class="logo-text">Pixel AI</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Управление умным домом</div>
                 </div>
             </div>
             <div class="status-indicator">
                 <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Выключено</span>
+                <span id="statusText">Ожидание</span>
             </div>
         </header>
 
-        <!-- Main Terminal -->
-        <main class="terminal-container">
-            <div class="terminal-header">
-                <div class="terminal-controls">
-                    <div class="control-btn close"></div>
-                    <div class="control-btn minimize"></div>
-                    <div class="control-btn maximize"></div>
-                </div>
-                <div class="terminal-title">terminal.log</div>
-            </div>
-            <div class="terminal-content" id="terminal">
-                <div class="log-entry system">
-                    <span class="log-timestamp">[2024-01-01 00:00:00]</span>
-                    Система инициализирована. Ожидание конфигурации...
-                </div>
-                <div class="log-entry system">
-                    <span class="log-timestamp">[2024-01-01 00:00:01]</span>
-                    Готов к приему голосовых команд через DeepSeek AI
-                </div>
-            </div>
-        </main>
-
-        <!-- Control Panel -->
-        <aside class="control-panel">
-            <!-- Configuration Card -->
-            <div class="panel-card">
+        <!-- Основной контент -->
+        <main class="main-content">
+            <!-- Карточка конфигурации -->
+            <div class="card">
                 <h3 class="card-title">
-                    <i class="fas fa-cogs"></i>
-                    Конфигурация
+                    <i class="fas fa-cog"></i>
+                    Настройки
                 </h3>
                 
                 <div class="input-group">
-                    <label class="input-label">
-                        <i class="fas fa-key"></i>
-                        OpenRouter API Key
-                    </label>
+                    <label class="input-label">OpenRouter API Key</label>
                     <input type="password" 
                            class="input-field" 
-                           id="apiKey" 
-                           placeholder="sk-or-v1-xxxxxxxxxxxxxxxx"
+                           id="apiKey"
+                           placeholder="sk-or-v1-..."
                            autocomplete="off">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">
+                        Получите на <a href="https://openrouter.ai" style="color: var(--primary);">openrouter.ai</a>
+                    </div>
                 </div>
-
+                
                 <div class="input-group">
-                    <label class="input-label">
-                        <i class="fas fa-microchip"></i>
-                        ESP32 IP Address
-                    </label>
+                    <label class="input-label">ESP32 IP адрес</label>
                     <input type="text" 
                            class="input-field" 
-                           id="espIp" 
+                           id="espIp"
                            placeholder="192.168.1.100"
                            autocomplete="off">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">
+                        Укажите IP адрес вашего ESP32 в локальной сети
+                    </div>
                 </div>
-
-                <button class="btn" id="initBtn" onclick="initializeSystem()">
-                    <i class="fas fa-power-off"></i>
-                    ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ
+                
+                <button class="btn" id="initBtn" onclick="initSystem()">
+                    <i class="fas fa-play-circle"></i>
+                    Запустить систему
                 </button>
             </div>
 
-            <!-- Voice Control Card -->
-            <div class="panel-card">
+            <!-- Карточка управления светом -->
+            <div class="card">
                 <h3 class="card-title">
-                    <i class="fas fa-microphone"></i>
-                    Голосовое управление
+                    <i class="fas fa-lightbulb"></i>
+                    Управление светом
                 </h3>
                 
-                <div class="mic-container">
-                    <div class="mic-icon" id="micIcon">
-                        <i class="fas fa-microphone"></i>
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="color: var(--text-secondary);">Статус светодиода:</span>
+                    <span id="ledStatusText" style="margin-left: 10px; font-weight: 600;">Неизвестно</span>
+                    <div class="led-indicator" id="ledIndicator"></div>
+                </div>
+                
+                <div class="light-control">
+                    <button class="light-btn on" onclick="sendCommandToESP32('LED_ON')">
+                        <i class="fas fa-power-off"></i>
+                        Включить
+                    </button>
+                    <button class="light-btn off" onclick="sendCommandToESP32('LED_OFF')">
+                        <i class="fas fa-power-off"></i>
+                        Выключить
+                    </button>
+                </div>
+                
+                <div style="margin-top: 15px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+                    Или скажите: "Пиксель, включи свет" / "Пиксель, выключи свет"
+                </div>
+            </div>
+
+            <!-- Карточка терминала -->
+            <div class="card">
+                <h3 class="card-title">
+                    <i class="fas fa-terminal"></i>
+                    Журнал системы
+                </h3>
+                <div class="terminal" id="terminal">
+                    <div class="log-entry system">
+                        <span class="timestamp">[00:00:00]</span>
+                        Система Pixel AI загружена
                     </div>
-                    <div class="mic-waves" id="micWaves">
-                        <div class="wave"></div>
-                        <div class="wave"></div>
-                        <div class="wave"></div>
+                    <div class="log-entry system">
+                        <span class="timestamp">[00:00:01]</span>
+                        Для начала работы введите API ключ и IP ESP32
                     </div>
                 </div>
-
-                <div class="voice-visualizer" id="visualizer"></div>
-
-                <button class="btn btn-secondary" id="voiceBtn" onclick="toggleVoiceControl()" disabled>
-                    <i class="fas fa-microphone-slash"></i>
-                    ГОЛОСОВОЕ УПРАВЛЕНИЕ ОТКЛЮЧЕНО
+                
+                <button class="btn btn-secondary" onclick="clearLogs()" style="margin-top: 10px;">
+                    <i class="fas fa-trash"></i>
+                    Очистить журнал
                 </button>
             </div>
 
-            <!-- Status Card -->
-            <div class="panel-card">
+            <!-- Карточка статусов -->
+            <div class="card">
                 <h3 class="card-title">
                     <i class="fas fa-chart-bar"></i>
                     Статус системы
                 </h3>
                 
-                <div class="status-display">
+                <div class="status-grid">
                     <div class="status-item">
-                        <span class="status-label">Голосовое управление</span>
-                        <span class="status-value inactive" id="voiceStatus">Неактивно</span>
+                        <div class="status-label">Распознавание речи</div>
+                        <div class="status-value inactive" id="voiceStatus">Не активно</div>
                     </div>
+                    
                     <div class="status-item">
-                        <span class="status-label">API соединение</span>
-                        <span class="status-value inactive" id="apiStatus">Не подключено</span>
+                        <div class="status-label">AI соединение</div>
+                        <div class="status-value inactive" id="aiStatus">Не активно</div>
                     </div>
+                    
                     <div class="status-item">
-                        <span class="status-label">ESP32 соединение</span>
-                        <span class="status-value inactive" id="espStatus">Не подключено</span>
+                        <div class="status-label">ESP32</div>
+                        <div class="status-value inactive" id="espStatus">Не подключен</div>
                     </div>
+                    
                     <div class="status-item">
-                        <span class="status-label">Текущий режим</span>
-                        <span class="status-value" id="modeStatus">Ожидание</span>
+                        <div class="status-label">Текущий режим</div>
+                        <div class="status-value" id="modeStatus">Ожидание</div>
                     </div>
                 </div>
-
-                <button class="btn btn-danger" onclick="resetSystem()">
-                    <i class="fas fa-redo"></i>
-                    СБРОС СИСТЕМЫ
+                
+                <!-- Визуализатор голоса -->
+                <div class="visualizer-container">
+                    <div class="visualizer" id="visualizer"></div>
+                    <div style="text-align: center; font-size: 14px; color: var(--text-secondary);">
+                        <i class="fas fa-microphone"></i> Активность микрофона
+                    </div>
+                </div>
+                
+                <button class="btn btn-secondary" onclick="testESP32Connection()">
+                    <i class="fas fa-wifi"></i>
+                    Проверить ESP32
                 </button>
             </div>
-        </aside>
+        </main>
+
+        <!-- Кнопка микрофона (фиксированная) -->
+        <div class="mic-container">
+            <button class="mic-btn" id="micBtn" onclick="toggleVoiceControl()" disabled>
+                <i class="fas fa-microphone"></i>
+                <div class="mic-waves" id="micWaves">
+                    <div class="wave"></div>
+                    <div class="wave"></div>
+                    <div class="wave"></div>
+                </div>
+            </button>
+            <div class="mic-label" id="micLabel">Активируйте голосовое управление</div>
+            <div id="commandStatus" style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;"></div>
+        </div>
     </div>
 
-    <!-- Notification Container -->
+    <!-- Контейнер для уведомлений -->
     <div id="notificationContainer"></div>
 
     <script>
-        // System State
-        const systemState = {
-            initialized: false,
-            voiceActive: false,
-            listening: false,
+        // ============================================
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И СОСТОЯНИЯ
+        // ============================================
+        const AppState = {
+            // Конфигурация
             apiKey: '',
             espIp: '',
+            espConnected: false,
+            ledState: 'off',
+            
+            // Состояние системы
+            initialized: false,
+            voiceActive: false,
+            listeningForActivation: true,
+            listeningForCommand: false,
+            isProcessing: false,
             wakeLock: null,
-            recognition: null,
-            currentMode: 'idle'
+            
+            // Объекты API
+            speechRecognition: null,
+            speechSynthesis: window.speechSynthesis || null,
+            
+            // Таймеры
+            visualizerTimer: null,
+            recognitionRestartTimer: null,
+            espPingTimer: null,
+            
+            // Настройки
+            settings: {
+                autoRestartRecognition: true,
+                maxRetryAttempts: 3,
+                retryDelay: 1000,
+                visualizerEnabled: true,
+                espPingInterval: 30000, // 30 секунд
+                activationPhrase: 'пиксель',
+                activationResponse: 'Слушаю вас'
+            }
         };
 
-        // DOM Elements
-        const elements = {
-            terminal: document.getElementById('terminal'),
+        // ============================================
+        // DOM ЭЛЕМЕНТЫ
+        // ============================================
+        const DOM = {
+            // Статус
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
+            
+            // Конфигурация
             apiKey: document.getElementById('apiKey'),
             espIp: document.getElementById('espIp'),
             initBtn: document.getElementById('initBtn'),
-            voiceBtn: document.getElementById('voiceBtn'),
-            micIcon: document.getElementById('micIcon'),
+            
+            // Микрофон
+            micBtn: document.getElementById('micBtn'),
+            micLabel: document.getElementById('micLabel'),
             micWaves: document.getElementById('micWaves'),
+            commandStatus: document.getElementById('commandStatus'),
+            
+            // Терминал
+            terminal: document.getElementById('terminal'),
             visualizer: document.getElementById('visualizer'),
+            
+            // Статусы
             voiceStatus: document.getElementById('voiceStatus'),
-            apiStatus: document.getElementById('apiStatus'),
+            aiStatus: document.getElementById('aiStatus'),
             espStatus: document.getElementById('espStatus'),
-            modeStatus: document.getElementById('modeStatus')
+            modeStatus: document.getElementById('modeStatus'),
+            
+            // Светодиод
+            ledStatusText: document.getElementById('ledStatusText'),
+            ledIndicator: document.getElementById('ledIndicator')
         };
 
-        // Notification System
+        // ============================================
+        // УТИЛИТЫ
+        // ============================================
+        
+        // Форматирование времени
+        function getTimestamp() {
+            const now = new Date();
+            return now.toLocaleTimeString('ru-RU', { 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // Генерация случайного числа
+        function getRandom(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // Проверка поддержки API
+        function checkBrowserSupport() {
+            const support = {
+                speechRecognition: 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window,
+                speechSynthesis: 'speechSynthesis' in window,
+                wakeLock: 'wakeLock' in navigator
+            };
+            
+            if (!support.speechRecognition) {
+                showNotification('Ваш браузер не поддерживает распознавание речи', 'error');
+                return false;
+            }
+            
+            if (!support.speechSynthesis) {
+                showNotification('Ваш браузер не поддерживает синтез речи', 'error');
+            }
+            
+            return true;
+        }
+
+        // ============================================
+        // СИСТЕМА УВЕДОМЛЕНИЙ
+        // ============================================
         function showNotification(message, type = 'info', duration = 3000) {
             const container = document.getElementById('notificationContainer');
             const notification = document.createElement('div');
+            
+            const icons = {
+                success: 'check-circle',
+                error: 'exclamation-circle',
+                warning: 'exclamation-triangle',
+                info: 'info-circle'
+            };
+            
             notification.className = `notification ${type}`;
             notification.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
-                    <span>${message}</span>
-                </div>
+                <i class="fas fa-${icons[type] || 'info-circle'}"></i>
+                <span>${message}</span>
             `;
             
             container.appendChild(notification);
             
+            // Анимация появления
             setTimeout(() => notification.classList.add('show'), 10);
+            
+            // Автоматическое скрытие
             setTimeout(() => {
                 notification.classList.remove('show');
                 setTimeout(() => notification.remove(), 300);
             }, duration);
+            
+            return notification;
         }
 
-        // Logging System
-        function logToTerminal(message, type = 'system') {
-            const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);
+        // ============================================
+        // СИСТЕМА ЛОГИРОВАНИЯ
+        // ============================================
+        function log(message, type = 'system') {
+            const timestamp = getTimestamp();
             const logEntry = document.createElement('div');
+            
             logEntry.className = `log-entry ${type}`;
             logEntry.innerHTML = `
-                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="timestamp">[${timestamp}]</span>
                 ${message}
             `;
             
-            elements.terminal.appendChild(logEntry);
-            elements.terminal.scrollTop = elements.terminal.scrollHeight;
+            DOM.terminal.appendChild(logEntry);
+            DOM.terminal.scrollTop = DOM.terminal.scrollHeight;
             
-            // Limit logs to 100 entries
-            const entries = elements.terminal.querySelectorAll('.log-entry');
-            if (entries.length > 100) {
-                entries[0].remove();
+            // Ограничение количества логов (сохраняем последние 50)
+            const logs = DOM.terminal.querySelectorAll('.log-entry');
+            if (logs.length > 50) {
+                logs[0].remove();
             }
         }
 
-        // Voice Visualizer
-        function updateVisualizer(volume) {
+        // Очистка логов
+        function clearLogs() {
+            DOM.terminal.innerHTML = '';
+            log('Журнал очищен', 'system');
+        }
+
+        // ============================================
+        // ВИЗУАЛИЗАЦИЯ ГОЛОСА
+        // ============================================
+        function updateVisualizer() {
+            if (!AppState.settings.visualizerEnabled || !DOM.visualizer) return;
+            
             const bars = 32;
-            const barWidth = 100 / bars;
-            elements.visualizer.innerHTML = '';
+            let html = '';
             
             for (let i = 0; i < bars; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'visualizer-bar';
-                bar.style.left = `${i * barWidth}%`;
-                bar.style.height = `${Math.random() * 50 + volume * 50}%`;
-                bar.style.animationDelay = `${i * 0.02}s`;
-                elements.visualizer.appendChild(bar);
+                const height = AppState.listeningForCommand || AppState.listeningForActivation 
+                    ? Math.floor(getRandom(10, 80)) 
+                    : Math.floor(getRandom(2, 10));
+                
+                const delay = i * 0.02;
+                html += `<div class="bar" style="height: ${height}%; animation-delay: ${delay}s;"></div>`;
             }
+            
+            DOM.visualizer.innerHTML = html;
         }
 
-        // Wake Lock API
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    systemState.wakeLock = await navigator.wakeLock.request('screen');
-                    logToTerminal('Wake Lock активирован', 'system');
-                }
-            } catch (err) {
-                console.warn('Wake Lock не поддерживается:', err);
-            }
+        function startVisualizer() {
+            if (AppState.visualizerTimer) clearInterval(AppState.visualizerTimer);
+            AppState.visualizerTimer = setInterval(updateVisualizer, 100);
         }
 
-        // Speech Recognition
-        function initSpeechRecognition() {
-            if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-                showNotification('Голосовое управление не поддерживается вашим браузером', 'error');
+        function stopVisualizer() {
+            if (AppState.visualizerTimer) {
+                clearInterval(AppState.visualizerTimer);
+                AppState.visualizerTimer = null;
+            }
+            DOM.visualizer.innerHTML = '';
+        }
+
+        // ============================================
+        // УПРАВЛЕНИЕ ESP32
+        // ============================================
+        async function sendCommandToESP32(command) {
+            if (!AppState.espIp) {
+                log('IP ESP32 не настроен', 'error');
+                showNotification('Укажите IP адрес ESP32', 'warning');
                 return false;
             }
-
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            systemState.recognition = new SpeechRecognition();
-            systemState.recognition.lang = 'ru-RU';
-            systemState.recognition.continuous = false;
-            systemState.recognition.interimResults = false;
-            systemState.recognition.maxAlternatives = 1;
-
-            systemState.recognition.onstart = () => {
-                systemState.listening = true;
-                elements.micIcon.classList.add('listening');
-                document.querySelectorAll('.wave').forEach(wave => wave.classList.add('active'));
-                updateVisualizer(0.5);
-                elements.modeStatus.textContent = 'Прослушивание...';
-                logToTerminal('Начало прослушивания...', 'system');
-            };
-
-            systemState.recognition.onresult = async (event) => {
-                const text = event.results[0][0].transcript;
-                logToTerminal(`Распознано: "${text}"`, 'command');
-                await processCommand(text);
-            };
-
-            systemState.recognition.onerror = (event) => {
-                if (event.error === 'no-speech' || event.error === 'audio-capture') {
-                    logToTerminal('Речь не распознана, продолжаю слушать...', 'system');
-                    setTimeout(() => {
-                        if (systemState.voiceActive && systemState.initialized) {
-                            systemState.recognition.start();
-                        }
-                    }, 1000);
-                } else {
-                    logToTerminal(`Ошибка распознавания: ${event.error}`, 'error');
-                    showNotification('Ошибка распознавания речи', 'error');
-                }
-                systemState.listening = false;
-                elements.micIcon.classList.remove('listening');
-                document.querySelectorAll('.wave').forEach(wave => wave.classList.remove('active'));
-            };
-
-            systemState.recognition.onend = () => {
-                systemState.listening = false;
-                elements.micIcon.classList.remove('listening');
-                document.querySelectorAll('.wave').forEach(wave => wave.classList.remove('active'));
-                elements.visualizer.innerHTML = '';
-                
-                if (systemState.voiceActive && systemState.initialized && systemState.currentMode !== 'processing') {
-                    setTimeout(() => {
-                        if (systemState.voiceActive) {
-                            systemState.recognition.start();
-                        }
-                    }, 500);
-                }
-            };
-
-            return true;
-        }
-
-        // AI Processing
-        async function processCommand(text) {
-            if (!systemState.initialized) return;
-
-            systemState.currentMode = 'processing';
-            elements.modeStatus.textContent = 'Обработка...';
             
             try {
+                log(`Отправка команды на ESP32: ${command}`, 'esp32');
+                DOM.commandStatus.textContent = `Отправка: ${command}`;
+                
+                // Создаем Image объект для кросс-доменного запроса
+                const img = new Image();
+                
+                // Используем GET запрос для простоты
+                const url = `http://${AppState.espIp}/command?cmd=${encodeURIComponent(command)}&t=${Date.now()}`;
+                
+                img.onload = function() {
+                    log(`Команда ${command} успешно отправлена`, 'esp32');
+                    DOM.commandStatus.textContent = `Команда ${command} выполнена`;
+                    showNotification(`ESP32: ${command}`, 'success');
+                    
+                    // Обновляем состояние светодиода
+                    if (command === 'LED_ON') {
+                        AppState.ledState = 'on';
+                        DOM.ledStatusText.textContent = 'Включен';
+                        DOM.ledStatusText.style.color = '#00ff00';
+                        DOM.ledIndicator.classList.add('on');
+                    } else if (command === 'LED_OFF') {
+                        AppState.ledState = 'off';
+                        DOM.ledStatusText.textContent = 'Выключен';
+                        DOM.ledStatusText.style.color = '#ff4444';
+                        DOM.ledIndicator.classList.remove('on');
+                    }
+                };
+                
+                img.onerror = function() {
+                    log(`Ошибка отправки команды на ESP32`, 'error');
+                    DOM.commandStatus.textContent = 'Ошибка связи с ESP32';
+                    AppState.espConnected = false;
+                    updateESP32Status();
+                };
+                
+                img.src = url;
+                
+                // Также пробуем fetch с no-cors
+                try {
+                    await fetch(`http://${AppState.espIp}/command`, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'text/plain'
+                        },
+                        body: command
+                    });
+                } catch (e) {
+                    // Игнорируем ошибки no-cors
+                }
+                
+                return true;
+            } catch (error) {
+                log(`Ошибка: ${error.message}`, 'error');
+                DOM.commandStatus.textContent = 'Ошибка отправки';
+                return false;
+            }
+        }
+
+        async function testESP32Connection() {
+            if (!AppState.espIp) {
+                showNotification('Укажите IP адрес ESP32', 'warning');
+                return;
+            }
+            
+            DOM.espStatus.textContent = 'Проверка...';
+            DOM.espStatus.className = 'status-value warning';
+            
+            try {
+                const response = await fetch(`http://${AppState.espIp}/`, { 
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                
+                AppState.espConnected = true;
+                DOM.espStatus.textContent = 'Подключен';
+                DOM.espStatus.className = 'status-value active';
+                log('ESP32 подключен успешно', 'system');
+                showNotification('ESP32 подключен', 'success');
+                
+                // Запускаем периодическую проверку
+                if (AppState.espPingTimer) clearInterval(AppState.espPingTimer);
+                AppState.espPingTimer = setInterval(testESP32Connection, AppState.settings.espPingInterval);
+                
+            } catch (error) {
+                AppState.espConnected = false;
+                DOM.espStatus.textContent = 'Не подключен';
+                DOM.espStatus.className = 'status-value error';
+                log('ESP32 не отвечает', 'error');
+                showNotification('ESP32 не отвечает', 'error');
+            }
+        }
+
+        function updateESP32Status() {
+            if (AppState.espConnected) {
+                DOM.espStatus.textContent = 'Подключен';
+                DOM.espStatus.className = 'status-value active';
+            } else {
+                DOM.espStatus.textContent = 'Не подключен';
+                DOM.espStatus.className = 'status-value error';
+            }
+        }
+
+        // ============================================
+        // ИНИЦИАЛИЗАЦИЯ СИСТЕМЫ РАСПОЗНАВАНИЯ РЕЧИ
+        // ============================================
+        function initSpeechRecognition() {
+            if (!checkBrowserSupport()) return false;
+            
+            try {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                AppState.speechRecognition = new SpeechRecognition();
+                
+                // Настройки распознавания
+                AppState.speechRecognition.continuous = true;
+                AppState.speechRecognition.interimResults = false;
+                AppState.speechRecognition.lang = 'ru-RU';
+                AppState.speechRecognition.maxAlternatives = 1;
+                
+                // События распознавания
+                AppState.speechRecognition.onstart = function() {
+                    log('Распознавание речи активировано', 'system');
+                    DOM.voiceStatus.textContent = 'Активно';
+                    DOM.voiceStatus.className = 'status-value active';
+                    
+                    // Запускаем визуализатор
+                    startVisualizer();
+                    
+                    // Активируем волны микрофона
+                    document.querySelectorAll('.wave').forEach(wave => {
+                        wave.classList.add('active');
+                    });
+                };
+                
+                AppState.speechRecognition.onresult = async function(event) {
+                    const result = event.results[event.results.length - 1];
+                    const transcript = result[0].transcript.toLowerCase().trim();
+                    
+                    log(`Распознано: "${transcript}"`, 'listen');
+                    DOM.commandStatus.textContent = `Распознано: ${transcript}`;
+                    
+                    // Проверка активационной фразы
+                    if (AppState.listeningForActivation && transcript.includes(AppState.settings.activationPhrase)) {
+                        log('Активационная фраза распознана', 'system');
+                        AppState.listeningForActivation = false;
+                        AppState.listeningForCommand = true;
+                        
+                        DOM.modeStatus.textContent = 'Слушаю команду';
+                        DOM.statusText.textContent = 'Слушаю команду';
+                        DOM.statusDot.classList.add('listening');
+                        
+                        // Робот отвечает
+                        speak(AppState.settings.activationResponse);
+                        
+                        // После ответа начинаем слушать команду
+                        setTimeout(() => {
+                            log('Готов к приему команды...', 'system');
+                            DOM.commandStatus.textContent = 'Говорите команду...';
+                        }, 1000);
+                        
+                    } else if (AppState.listeningForCommand) {
+                        // Обработка команды
+                        log(`Команда: "${transcript}"`, 'command');
+                        DOM.modeStatus.textContent = 'Обработка...';
+                        DOM.commandStatus.textContent = 'Обработка команды...';
+                        
+                        // Отправляем команду в AI
+                        await processCommand(transcript);
+                        
+                        // Возвращаемся к прослушиванию активационной фразы
+                        setTimeout(() => {
+                            resetToActivationMode();
+                        }, 1000);
+                    }
+                };
+                
+                AppState.speechRecognition.onerror = function(event) {
+                    if (event.error === 'no-speech' || event.error === 'audio-capture') {
+                        // Это не ошибка, просто нет речи
+                        return;
+                    }
+                    
+                    log(`Ошибка распознавания: ${event.error}`, 'error');
+                    
+                    if (event.error === 'network') {
+                        showNotification('Проблемы с сетью', 'error');
+                    }
+                    
+                    // Перезапускаем распознавание
+                    if (AppState.voiceActive && AppState.settings.autoRestartRecognition) {
+                        setTimeout(() => {
+                            if (AppState.voiceActive) {
+                                AppState.speechRecognition.start();
+                            }
+                        }, 1000);
+                    }
+                };
+                
+                AppState.speechRecognition.onend = function() {
+                    log('Распознавание речи остановлено', 'system');
+                    DOM.voiceStatus.textContent = 'Не активно';
+                    DOM.voiceStatus.className = 'status-value inactive';
+                    
+                    // Останавливаем визуализатор
+                    stopVisualizer();
+                    
+                    // Останавливаем волны микрофона
+                    document.querySelectorAll('.wave').forEach(wave => {
+                        wave.classList.remove('active');
+                    });
+                    
+                    // Автоперезапуск, если система активна
+                    if (AppState.voiceActive && AppState.settings.autoRestartRecognition) {
+                        setTimeout(() => {
+                            if (AppState.voiceActive) {
+                                AppState.speechRecognition.start();
+                            }
+                        }, 500);
+                    }
+                };
+                
+                return true;
+            } catch (error) {
+                log(`Ошибка инициализации распознавания речи: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // ============================================
+        // ОБРАБОТКА КОМАНД И AI
+        // ============================================
+        async function processCommand(command) {
+            if (!AppState.apiKey) {
+                speak('API ключ не настроен');
+                showNotification('Настройте API ключ', 'warning');
+                return;
+            }
+            
+            AppState.isProcessing = true;
+            
+            try {
+                log(`Отправка запроса к AI: "${command}"`, 'system');
+                DOM.modeStatus.textContent = 'AI думает...';
+                DOM.statusText.textContent = 'AI думает...';
+                
+                // Подготовка системного промпта
+                const systemPrompt = `Ты робот Пиксель, управляющий умным домом через ESP32. 
+                Отвечай кратко (1-2 фразы). 
+                Если пользователь просит включить или выключить свет, используй команды LED_ON или LED_OFF.
+                Формат ответа строго: Text: [твой ответ] Commands: [команда или null]
+                Примеры:
+                - Пользователь: "Включи свет" → Text: Включаю свет. Commands: LED_ON
+                - Пользователь: "Выключи свет" → Text: Выключаю свет. Commands: LED_OFF
+                - Пользователь: "Какая сегодня погода?" → Text: Я не могу узнать погоду. Commands: null`;
+                
+                // Отправка запроса к OpenRouter API
                 const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${systemState.apiKey}`,
+                        'Authorization': `Bearer ${AppState.apiKey}`,
                         'Content-Type': 'application/json',
                         'HTTP-Referer': window.location.origin,
                         'X-Title': 'Pixel AI Assistant'
@@ -917,58 +1291,59 @@
                     body: JSON.stringify({
                         model: 'deepseek/deepseek-r1',
                         messages: [
-                            {
-                                role: 'system',
-                                content: `Ты робот Пиксель. Отвечай кратко (1-2 фразы).
-                                         Если просят включить/выключить свет, используй команды LED_ON или LED_OFF.
-                                         Формат ответа строго: Text: [фраза для озвучки] Commands: [команда или null]`
-                            },
-                            { role: 'user', content: text }
-                        ]
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: command }
+                        ],
+                        max_tokens: 100,
+                        temperature: 0.7
                     })
                 });
-
+                
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
+                    throw new Error(`AI API error: ${response.status}`);
                 }
-
+                
                 const data = await response.json();
                 const aiResponse = data.choices[0].message.content;
                 
-                // Parse response
-                const textMatch = aiResponse.match(/Text:\s*(.*)/i);
-                const commandMatch = aiResponse.match(/Commands:\s*(\w+)/i);
+                log(`AI ответ: ${aiResponse}`, 'ai');
+                DOM.aiStatus.textContent = 'Активно';
+                DOM.aiStatus.className = 'status-value active';
                 
-                const responseText = textMatch ? textMatch[1] : aiResponse;
-                const command = commandMatch ? commandMatch[1] : null;
+                // Парсинг ответа AI
+                const textMatch = aiResponse.match(/Text:\s*(.*?)(?:\n|$)/i);
+                const commandMatch = aiResponse.match(/Commands:\s*(LED_ON|LED_OFF|null)/i);
                 
-                logToTerminal(`AI: ${responseText}`, 'ai');
+                const responseText = textMatch ? textMatch[1].trim() : aiResponse;
+                const aiCommand = commandMatch ? commandMatch[1].toUpperCase() : null;
                 
-                // Execute command if exists
-                if (command && command !== 'null' && systemState.espIp) {
-                    await sendToESP32(command);
-                }
-                
-                // Speak response
+                // Озвучка ответа
                 speak(responseText);
                 
+                // Выполнение команды, если есть
+                if (aiCommand && aiCommand !== 'NULL') {
+                    log(`AI команда: ${aiCommand}`, 'command');
+                    await sendCommandToESP32(aiCommand);
+                }
+                
             } catch (error) {
-                logToTerminal(`Ошибка AI обработки: ${error.message}`, 'error');
+                log(`Ошибка AI: ${error.message}`, 'error');
+                DOM.aiStatus.textContent = 'Ошибка';
+                DOM.aiStatus.className = 'status-value error';
                 speak('Произошла ошибка при обработке запроса');
-                showNotification('Ошибка подключения к AI', 'error');
+                showNotification('Ошибка AI', 'error');
             } finally {
-                systemState.currentMode = 'listening';
-                elements.modeStatus.textContent = 'Прослушивание';
+                AppState.isProcessing = false;
             }
         }
 
-        // Text-to-Speech
+        // ============================================
+        // СИНТЕЗ РЕЧИ
+        // ============================================
         function speak(text) {
-            if (!('speechSynthesis' in window)) {
-                logToTerminal('Синтез речи не поддерживается', 'error');
-                return;
-            }
-
+            if (!AppState.speechSynthesis) return;
+            
+            // Отменяем текущую речь
             window.speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
@@ -977,71 +1352,63 @@
             utterance.pitch = 1.0;
             utterance.volume = 1.0;
             
-            utterance.onstart = () => {
-                logToTerminal('Начало озвучки...', 'system');
-                elements.modeStatus.textContent = 'Говорю...';
+            utterance.onstart = function() {
+                log(`Озвучка: "${text}"`, 'ai');
+                DOM.modeStatus.textContent = 'Говорит...';
             };
             
-            utterance.onend = () => {
-                logToTerminal('Озвучка завершена', 'system');
-                elements.modeStatus.textContent = 'Прослушивание';
+            utterance.onend = function() {
+                DOM.modeStatus.textContent = 'Ожидание';
             };
             
             window.speechSynthesis.speak(utterance);
         }
 
-        // ESP32 Communication
-        async function sendToESP32(command) {
-            if (!systemState.espIp) {
-                logToTerminal('IP ESP32 не настроен', 'warning');
-                return;
-            }
-
-            try {
-                logToTerminal(`Отправка команды на ESP32: ${command}`, 'system');
-                
-                // Using no-cors mode for local network
-                await fetch(`http://${systemState.espIp}/command`, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: command
-                });
-                
-                logToTerminal(`Команда "${command}" отправлена`, 'system');
-                elements.espStatus.textContent = 'Активно';
-                elements.espStatus.className = 'status-value active';
-                
-            } catch (error) {
-                logToTerminal(`Ошибка отправки команды: ${error.message}`, 'error');
-                elements.espStatus.textContent = 'Ошибка';
-                elements.espStatus.className = 'status-value';
-            }
+        // ============================================
+        // УПРАВЛЕНИЕ СОСТОЯНИЕМ СИСТЕМЫ
+        // ============================================
+        function resetToActivationMode() {
+            AppState.listeningForActivation = true;
+            AppState.listeningForCommand = false;
+            
+            DOM.modeStatus.textContent = 'Ожидание "Пиксель"';
+            DOM.statusText.textContent = 'Ожидание активации';
+            DOM.statusDot.classList.remove('listening');
+            
+            log('Ожидание активационной фразы "Пиксель"', 'system');
+            DOM.commandStatus.textContent = 'Скажите "Пиксель"';
         }
 
-        // System Initialization
-        async function initializeSystem() {
-            const apiKey = elements.apiKey.value.trim();
-            const espIp = elements.espIp.value.trim();
+        async function initSystem() {
+            const apiKey = DOM.apiKey.value.trim();
+            const espIp = DOM.espIp.value.trim();
             
             if (!apiKey) {
-                showNotification('Введите API ключ OpenRouter', 'error');
+                showNotification('Введите API ключ OpenRouter', 'warning');
                 return;
             }
             
-            // Basic validation
-            if (!apiKey.startsWith('sk-or-')) {
-                showNotification('Неверный формат API ключа', 'warning');
+            if (!espIp) {
+                showNotification('Введите IP адрес ESP32', 'warning');
+                return;
             }
             
-            systemState.apiKey = apiKey;
-            systemState.espIp = espIp;
+            // Сохраняем в localStorage
+            localStorage.setItem('pixel_ai_api_key', apiKey);
+            localStorage.setItem('pixel_ai_esp_ip', espIp);
             
-            // Update UI
-            elements.initBtn.disabled = true;
-            elements.initBtn.innerHTML = '<span class="spinner"></span> Инициализация...';
+            AppState.apiKey = apiKey;
+            AppState.espIp = espIp;
+            
+            // Блокируем кнопку
+            DOM.initBtn.disabled = true;
+            DOM.initBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Инициализация...';
             
             try {
-                // Test API connection
+                log('Инициализация системы...', 'system');
+                DOM.statusText.textContent = 'Инициализация...';
+                
+                // Проверка API ключа
                 const testResponse = await fetch('https://openrouter.ai/api/v1/auth/key', {
                     headers: { 'Authorization': `Bearer ${apiKey}` }
                 });
@@ -1050,150 +1417,245 @@
                     throw new Error('Неверный API ключ');
                 }
                 
-                // Initialize speech recognition
+                log('API ключ проверен', 'system');
+                DOM.aiStatus.textContent = 'Активно';
+                DOM.aiStatus.className = 'status-value active';
+                
+                // Инициализация распознавания речи
                 if (!initSpeechRecognition()) {
-                    throw new Error('Голосовое управление недоступно');
+                    throw new Error('Ошибка инициализации распознавания речи');
                 }
                 
-                // Request wake lock
-                await requestWakeLock();
-                
-                // Update system state
-                systemState.initialized = true;
-                
-                // Update UI
-                elements.statusDot.classList.add('active');
-                elements.statusText.textContent = 'Активно';
-                elements.apiStatus.textContent = 'Подключено';
-                elements.apiStatus.className = 'status-value active';
-                elements.voiceBtn.disabled = false;
-                elements.voiceBtn.innerHTML = '<i class="fas fa-microphone"></i> АКТИВИРОВАТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ';
-                
-                if (espIp) {
-                    elements.espStatus.textContent = 'Готово';
-                    elements.espStatus.className = 'status-value active';
+                // Включаем Wake Lock для Android
+                if ('wakeLock' in navigator) {
+                    try {
+                        AppState.wakeLock = await navigator.wakeLock.request('screen');
+                        log('Wake Lock активирован', 'system');
+                    } catch (wakeLockError) {
+                        console.warn('Wake Lock не поддерживается:', wakeLockError);
+                    }
                 }
                 
-                logToTerminal('Система инициализирована успешно', 'system');
-                logToTerminal('Готов к приему голосовых команд', 'system');
+                // Проверка подключения к ESP32
+                await testESP32Connection();
+                
+                // Активируем кнопку микрофона
+                DOM.micBtn.disabled = false;
+                AppState.initialized = true;
+                
+                // Обновление статуса
+                DOM.statusDot.classList.add('active');
+                DOM.statusText.textContent = 'Готов';
+                DOM.micLabel.textContent = 'Нажмите для активации';
+                
+                log('Система инициализирована успешно', 'system');
+                log('Скажите "Пиксель" для активации', 'system');
                 showNotification('Система готова к работе', 'success');
                 
-                speak('Система Пиксель готова к работе. Произнесите "Пиксель" для активации.');
+                // Приветствие
+                setTimeout(() => {
+                    speak('Система Пиксель готова к работе. Для активации скажите "Пиксель"');
+                }, 1000);
                 
             } catch (error) {
-                logToTerminal(`Ошибка инициализации: ${error.message}`, 'error');
-                showNotification(`Ошибка инициализации: ${error.message}`, 'error');
+                log(`Ошибка инициализации: ${error.message}`, 'error');
+                showNotification(`Ошибка: ${error.message}`, 'error');
                 
-                // Reset UI
-                elements.initBtn.disabled = false;
-                elements.initBtn.innerHTML = '<i class="fas fa-power-off"></i> ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ';
+                // Восстанавливаем кнопку
+                DOM.initBtn.disabled = false;
+                DOM.initBtn.innerHTML = '<i class="fas fa-play-circle"></i> Запустить систему';
             }
         }
 
-        // Voice Control Toggle
         function toggleVoiceControl() {
-            if (!systemState.initialized) return;
+            if (!AppState.initialized) return;
             
-            systemState.voiceActive = !systemState.voiceActive;
+            AppState.voiceActive = !AppState.voiceActive;
             
-            if (systemState.voiceActive) {
-                elements.voiceBtn.innerHTML = '<i class="fas fa-microphone"></i> ОТКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ';
-                elements.voiceBtn.classList.remove('btn-secondary');
-                elements.voiceStatus.textContent = 'Активно';
-                elements.voiceStatus.className = 'status-value active';
-                elements.modeStatus.textContent = 'Ожидание команды';
+            if (AppState.voiceActive) {
+                // Активация голосового управления
+                DOM.micBtn.classList.add('listening');
+                DOM.micLabel.textContent = 'Скажите "Пиксель"';
+                DOM.commandStatus.textContent = 'Ожидание активации...';
                 
-                logToTerminal('Голосовое управление активировано', 'system');
+                // Начинаем слушать
+                if (AppState.speechRecognition) {
+                    AppState.speechRecognition.start();
+                }
+                
+                resetToActivationMode();
+                
+                log('Голосовое управление активировано', 'system');
                 showNotification('Голосовое управление включено', 'success');
                 
-                // Start listening for activation word
-                systemState.recognition.start();
-                
             } else {
-                elements.voiceBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> АКТИВИРОВАТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ';
-                elements.voiceBtn.classList.add('btn-secondary');
-                elements.voiceStatus.textContent = 'Неактивно';
-                elements.voiceStatus.className = 'status-value inactive';
-                elements.modeStatus.textContent = 'Выключено';
+                // Деактивация голосового управления
+                DOM.micBtn.classList.remove('listening');
+                DOM.micLabel.textContent = 'Активируйте голосовое управление';
+                DOM.commandStatus.textContent = '';
                 
-                systemState.recognition.stop();
-                window.speechSynthesis.cancel();
+                // Останавливаем распознавание
+                if (AppState.speechRecognition) {
+                    AppState.speechRecognition.stop();
+                }
                 
-                logToTerminal('Голосовое управление отключено', 'system');
+                // Останавливаем речь
+                if (AppState.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                
+                // Останавливаем визуализатор
+                stopVisualizer();
+                
+                AppState.listeningForActivation = false;
+                AppState.listeningForCommand = false;
+                
+                DOM.modeStatus.textContent = 'Отключено';
+                DOM.statusText.textContent = 'Голос отключен';
+                DOM.statusDot.classList.remove('active');
+                DOM.statusDot.classList.remove('listening');
+                
+                log('Голосовое управление отключено', 'system');
                 showNotification('Голосовое управление выключено', 'info');
             }
         }
 
-        // System Reset
         function resetSystem() {
-            if (systemState.recognition) {
-                systemState.recognition.stop();
+            // Останавливаем все процессы
+            if (AppState.speechRecognition) {
+                AppState.speechRecognition.stop();
             }
             
-            if (systemState.wakeLock) {
-                systemState.wakeLock.release();
+            if (AppState.wakeLock) {
+                AppState.wakeLock.release();
             }
             
-            window.speechSynthesis.cancel();
+            if (AppState.visualizerTimer) {
+                clearInterval(AppState.visualizerTimer);
+            }
             
-            // Reset state
-            Object.keys(systemState).forEach(key => {
-                if (typeof systemState[key] === 'boolean') {
-                    systemState[key] = false;
-                } else if (typeof systemState[key] === 'string') {
-                    systemState[key] = '';
-                } else {
-                    systemState[key] = null;
-                }
-            });
+            if (AppState.espPingTimer) {
+                clearInterval(AppState.espPingTimer);
+            }
             
-            // Reset UI
-            elements.statusDot.classList.remove('active');
-            elements.statusText.textContent = 'Выключено';
-            elements.apiStatus.textContent = 'Не подключено';
-            elements.apiStatus.className = 'status-value inactive';
-            elements.espStatus.textContent = 'Не подключено';
-            elements.espStatus.className = 'status-value inactive';
-            elements.voiceStatus.textContent = 'Неактивно';
-            elements.voiceStatus.className = 'status-value inactive';
-            elements.modeStatus.textContent = 'Ожидание';
-            elements.voiceBtn.disabled = true;
-            elements.voiceBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> ГОЛОСОВОЕ УПРАВЛЕНИЕ ОТКЛЮЧЕНО';
-            elements.voiceBtn.classList.add('btn-secondary');
-            elements.initBtn.disabled = false;
-            elements.initBtn.innerHTML = '<i class="fas fa-power-off"></i> ИНИЦИАЛИЗИРОВАТЬ СИСТЕМУ';
+            if (AppState.recognitionRestartTimer) {
+                clearTimeout(AppState.recognitionRestartTimer);
+            }
             
-            logToTerminal('Система сброшена', 'system');
+            // Сбрасываем состояние
+            AppState.initialized = false;
+            AppState.voiceActive = false;
+            AppState.listeningForActivation = false;
+            AppState.listeningForCommand = false;
+            AppState.isProcessing = false;
+            AppState.espConnected = false;
+            
+            // Сбрасываем UI
+            DOM.statusDot.classList.remove('active');
+            DOM.statusDot.classList.remove('listening');
+            DOM.statusText.textContent = 'Ожидание';
+            
+            DOM.voiceStatus.textContent = 'Не активно';
+            DOM.voiceStatus.className = 'status-value inactive';
+            
+            DOM.aiStatus.textContent = 'Не активно';
+            DOM.aiStatus.className = 'status-value inactive';
+            
+            DOM.espStatus.textContent = 'Не подключен';
+            DOM.espStatus.className = 'status-value inactive';
+            
+            DOM.modeStatus.textContent = 'Ожидание';
+            
+            DOM.micBtn.disabled = true;
+            DOM.micBtn.classList.remove('listening');
+            DOM.micLabel.textContent = 'Активируйте голосовое управление';
+            
+            DOM.initBtn.disabled = false;
+            DOM.initBtn.innerHTML = '<i class="fas fa-play-circle"></i> Запустить систему';
+            
+            DOM.ledStatusText.textContent = 'Неизвестно';
+            DOM.ledStatusText.style.color = '';
+            DOM.ledIndicator.classList.remove('on');
+            
+            DOM.commandStatus.textContent = '';
+            
+            // Останавливаем визуализатор
+            stopVisualizer();
+            
+            log('Система сброшена', 'system');
             showNotification('Система сброшена', 'info');
         }
 
-        // Event Listeners for Enter key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && document.activeElement === elements.apiKey) {
-                initializeSystem();
-            }
-        });
-
-        // Page Visibility Handling
+        // ============================================
+        // ВОССТАНОВЛЕНИЕ ИЗ ФОНОВОГО РЕЖИМА
+        // ============================================
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && systemState.wakeLock) {
-                systemState.wakeLock.release();
-            } else if (document.visibilityState === 'visible' && systemState.initialized) {
-                requestWakeLock();
+            if (document.visibilityState === 'visible') {
+                // Восстанавливаем систему при возвращении на вкладку
+                if (AppState.initialized && AppState.voiceActive) {
+                    log('Восстановление распознавания речи...', 'system');
+                    
+                    // Перезапускаем распознавание
+                    if (AppState.speechRecognition) {
+                        setTimeout(() => {
+                            try {
+                                AppState.speechRecognition.start();
+                            } catch (e) {
+                                console.warn('Ошибка перезапуска распознавания:', e);
+                            }
+                        }, 500);
+                    }
+                    
+                    // Восстанавливаем Wake Lock
+                    if ('wakeLock' in navigator && !AppState.wakeLock) {
+                        navigator.wakeLock.request('screen').then(wakeLock => {
+                            AppState.wakeLock = wakeLock;
+                        });
+                    }
+                }
+            } else {
+                // При сворачивании освобождаем ресурсы
+                if (AppState.wakeLock) {
+                    AppState.wakeLock.release();
+                    AppState.wakeLock = null;
+                }
             }
         });
 
-        // Auto-fill for testing (remove in production)
-        elements.apiKey.value = localStorage.getItem('pixel_api_key') || '';
-        elements.espIp.value = localStorage.getItem('pixel_esp_ip') || '';
-        
-        // Save on change
-        elements.apiKey.addEventListener('change', () => {
-            localStorage.setItem('pixel_api_key', elements.apiKey.value);
+        // ============================================
+        // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+        // ============================================
+        window.addEventListener('DOMContentLoaded', () => {
+            // Загружаем сохраненные настройки
+            const savedApiKey = localStorage.getItem('pixel_ai_api_key');
+            const savedEspIp = localStorage.getItem('pixel_ai_esp_ip');
+            
+            if (savedApiKey) DOM.apiKey.value = savedApiKey;
+            if (savedEspIp) DOM.espIp.value = savedEspIp;
+            
+            // Автосохранение при изменении
+            DOM.apiKey.addEventListener('change', () => {
+                localStorage.setItem('pixel_ai_api_key', DOM.apiKey.value);
+            });
+            
+            DOM.espIp.addEventListener('change', () => {
+                localStorage.setItem('pixel_ai_esp_ip', DOM.espIp.value);
+            });
+            
+            // Проверка поддержки
+            checkBrowserSupport();
+            
+            log('Pixel AI для Android загружен', 'system');
+            log('Введите API ключ и IP ESP32 для начала работы', 'system');
         });
-        
-        elements.espIp.addEventListener('change', () => {
-            localStorage.setItem('pixel_esp_ip', elements.espIp.value);
+
+        // Предотвращаем закрытие страницы при активной системе
+        window.addEventListener('beforeunload', (e) => {
+            if (AppState.voiceActive) {
+                e.preventDefault();
+                e.returnValue = 'Голосовое управление активно. Вы уверены, что хотите покинуть страницу?';
+                return e.returnValue;
+            }
         });
     </script>
 </body>
