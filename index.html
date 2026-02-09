@@ -1,27 +1,27 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" id="htmlLang">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURAL TERMINAL | AI Assistant</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0a0e14">
-    <title>Pixel AI - Умный ассистент</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary: #00ff9d;
-            --secondary: #0094ff;
-            --accent: #ff00e5;
-            --danger: #ff4757;
-            --warning: #ffaa00;
-            --success: #00d2ff;
-            --bg-dark: #0a0e14;
-            --bg-card: #1a1f2e;
-            --bg-input: #131823;
+            --neon-primary: #00ff9d;
+            --neon-secondary: #0094ff;
+            --neon-accent: #ff00e5;
+            --neon-warning: #ff4757;
+            --bg-primary: #0a0e14;
+            --bg-secondary: #1a1f2e;
+            --bg-tertiary: #252a3a;
             --text-primary: #ffffff;
-            --text-secondary: #a0aec0;
-            --border: rgba(0, 255, 157, 0.1);
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
+            --text-secondary: #b0b7c3;
+            --card-bg: rgba(26, 31, 46, 0.8);
+            --border-color: rgba(0, 255, 157, 0.2);
+            --shadow-glow: 0 0 20px rgba(0, 255, 157, 0.3);
+            --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         * {
@@ -32,1019 +32,1640 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-dark);
+            background: var(--bg-primary);
             color: var(--text-primary);
+            font-family: 'SF Mono', 'Cascadia Code', 'Monaco', monospace;
             min-height: 100vh;
-            line-height: 1.5;
+            overflow-x: hidden;
+            line-height: 1.6;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(0, 255, 157, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(0, 148, 255, 0.05) 0%, transparent 50%);
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 20px;
-            min-height: 100vh;
-        }
-
-        @media (max-width: 1024px) {
-            .container {
-                grid-template-columns: 300px 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                grid-template-columns: 1fr;
-                padding: 10px;
-            }
+        /* Glassmorphism эффекты */
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-soft);
         }
 
         /* Header */
         .header {
-            grid-column: 1 / -1;
-            background: var(--bg-card);
-            border-radius: 15px;
-            padding: 20px;
+            padding: 15px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-            margin-bottom: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 14, 20, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .logo {
+        .logo-container {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .logo-icon {
-            width: 50px;
-            height: 50px;
-            background: var(--gradient-primary);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--neon-primary), var(--neon-secondary));
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: var(--bg-primary);
+            border-radius: 4px;
         }
 
         .logo-text {
-            font-size: 24px;
-            font-weight: bold;
-            background: var(--gradient-primary);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .header-controls {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 16px;
         }
 
-        /* Language Switcher */
-        .language-switcher {
+        /* Language Selector */
+        .language-selector {
             display: flex;
-            gap: 5px;
-            background: var(--bg-input);
-            border-radius: 20px;
-            padding: 5px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 4px;
+            border: 1px solid var(--border-color);
         }
 
         .lang-btn {
-            padding: 8px 16px;
-            border: none;
+            padding: 6px 12px;
             background: transparent;
+            border: none;
+            border-radius: 6px;
             color: var(--text-secondary);
-            border-radius: 15px;
-            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
             font-weight: 500;
-            transition: all 0.3s;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 60px;
+            text-align: center;
         }
 
         .lang-btn.active {
-            background: var(--primary);
-            color: var(--bg-dark);
+            background: var(--neon-primary);
+            color: var(--bg-primary);
+            box-shadow: var(--shadow-glow);
         }
 
-        /* Sidebar */
-        .sidebar {
+        /* Main Layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+            padding: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Terminal Section */
+        .terminal-section {
             display: flex;
             flex-direction: column;
             gap: 20px;
         }
 
-        /* Chat Area */
-        .chat-area {
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-card);
-            border-radius: 15px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-
-        /* Chat Messages */
-        .chat-messages {
+        .terminal-card {
             flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            max-height: 500px;
+            min-height: 400px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
         }
 
-        .message {
-            max-width: 85%;
-            padding: 15px 20px;
-            border-radius: 15px;
-            animation: fadeIn 0.3s ease;
-            word-wrap: break-word;
-        }
-
-        .message.user {
-            align-self: flex-end;
-            background: var(--primary);
-            color: var(--bg-dark);
-        }
-
-        .message.ai {
-            align-self: flex-start;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-        }
-
-        .message.system {
-            align-self: center;
-            background: rgba(0, 148, 255, 0.1);
-            border: 1px solid rgba(0, 148, 255, 0.2);
-            max-width: 90%;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        .message-time {
-            font-size: 12px;
-            opacity: 0.7;
-            margin-top: 5px;
-            text-align: right;
-        }
-
-        /* Input Area */
-        .input-area {
-            padding: 20px;
-            border-top: 1px solid var(--border);
-            background: var(--bg-card);
-        }
-
-        .input-wrapper {
+        .terminal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .terminal-title {
+            display: flex;
+            align-items: center;
             gap: 10px;
-            align-items: flex-end;
+            font-size: 14px;
+            font-weight: 500;
         }
 
-        .chat-input {
-            flex: 1;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 15px;
-            color: var(--text-primary);
-            font-size: 16px;
-            resize: none;
-            min-height: 60px;
-            max-height: 150px;
-            font-family: inherit;
+        .terminal-controls {
+            display: flex;
+            gap: 8px;
         }
 
-        .chat-input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .send-btn {
-            width: 50px;
-            height: 50px;
-            background: var(--gradient-primary);
-            border: none;
-            border-radius: 12px;
-            color: var(--bg-dark);
-            cursor: pointer;
-            font-size: 20px;
+        .terminal-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--neon-primary);
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
         }
 
-        /* Cards */
-        .card {
-            background: var(--bg-card);
-            border-radius: 12px;
+        .terminal-btn:hover {
+            background: var(--neon-primary);
+            color: var(--bg-primary);
+            transform: translateY(-2px);
+        }
+
+        #terminal {
+            flex: 1;
             padding: 20px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
+            overflow-y: auto;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0 0 12px 12px;
+        }
+
+        /* Terminal Messages */
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease-out;
+            max-width: 90%;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .message.system {
+            background: rgba(0, 255, 157, 0.1);
+            border-left: 3px solid var(--neon-primary);
+            align-self: flex-start;
+        }
+
+        .message.ai {
+            background: rgba(0, 148, 255, 0.1);
+            border-left: 3px solid var(--neon-secondary);
+            align-self: flex-start;
+        }
+
+        .message.user {
+            background: rgba(255, 0, 229, 0.1);
+            border-left: 3px solid var(--neon-accent);
+            align-self: flex-end;
+        }
+
+        .message.error {
+            background: rgba(255, 71, 87, 0.1);
+            border-left: 3px solid var(--neon-warning);
+            align-self: flex-start;
+        }
+
+        .message-timestamp {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* Controls Section */
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .status-card, .config-card, .voice-card, .input-card {
+            padding: 20px;
         }
 
         .card-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--neon-primary);
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            font-size: 18px;
-            font-weight: 600;
+            gap: 8px;
         }
 
-        .card-title i {
-            color: var(--primary);
+        .card-title::before {
+            content: '⟩';
+            color: var(--neon-primary);
         }
 
-        /* Form Elements */
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 14px;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        /* AI Models */
-        .models-grid {
+        /* Status Grid */
+        .status-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
         }
 
-        .model-card {
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
+        .status-item {
+            background: var(--bg-tertiary);
             padding: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
 
-        .model-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
+        .status-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
 
-        .model-card.active {
-            border-color: var(--primary);
-            background: rgba(0, 255, 157, 0.1);
-        }
-
-        .model-name {
+        .status-value {
             font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 5px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .model-provider {
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--neon-warning);
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .status-indicator.online {
+            background: var(--neon-primary);
+            box-shadow: 0 0 8px var(--neon-primary);
+        }
+
+        .status-indicator.offline {
+            background: var(--neon-warning);
+            box-shadow: 0 0 8px var(--neon-warning);
+        }
+
+        .status-indicator.pending {
+            background: #ffa500;
+            box-shadow: 0 0 8px #ffa500;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(0, 255, 157, 0.05);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .connection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .connection-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Input Groups */
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        .input-label {
+            display: block;
             font-size: 12px;
             color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--neon-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+            line-height: 1.5;
         }
 
         /* Buttons */
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background: var(--gradient-primary);
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 20px;
             border: none;
             border-radius: 8px;
-            color: var(--bg-dark);
+            font-family: inherit;
+            font-size: 12px;
             font-weight: 600;
-            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-            margin-top: 10px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .btn:hover {
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-primary), var(--neon-secondary));
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 255, 157, 0.2);
+            box-shadow: var(--shadow-glow);
         }
 
-        .btn:disabled {
+        .btn-secondary {
+            background: transparent;
+            color: var(--neon-primary);
+            border: 1px solid var(--neon-primary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--neon-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--neon-warning);
+            border: 1px solid var(--neon-warning);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--neon-warning);
+            color: var(--bg-primary);
+        }
+
+        button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none !important;
         }
 
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-
-        /* Microphone */
-        .mic-container {
+        /* Voice Control */
+        .voice-control {
             text-align: center;
-            margin: 20px 0;
         }
 
-        .mic-btn {
-            width: 70px;
-            height: 70px;
-            background: var(--gradient-primary);
-            border-radius: 50%;
+        .voice-status {
+            margin: 20px 0;
+            padding: 16px;
+            background: rgba(0, 255, 157, 0.05);
+            border-radius: 12px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .voice-status.active {
+            border-color: var(--neon-primary);
+            box-shadow: 0 0 30px rgba(0, 255, 157, 0.2);
+        }
+
+        .voice-visualizer {
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            color: var(--bg-dark);
-            margin: 0 auto;
-            cursor: pointer;
-            border: none;
-            transition: all 0.3s;
+            gap: 3px;
+            margin: 20px 0;
         }
 
-        .mic-btn.listening {
-            animation: pulse 1.5s infinite;
-            box-shadow: 0 0 30px rgba(0, 255, 157, 0.3);
+        .voice-bar {
+            width: 4px;
+            background: var(--neon-primary);
+            border-radius: 2px;
+            animation: voicePulse 0.8s ease infinite alternate;
         }
 
-        .mic-btn:disabled {
-            background: var(--text-secondary);
-            cursor: not-allowed;
-            animation: none;
-        }
-
-        .mic-status {
-            text-align: center;
-            margin-top: 10px;
-            font-size: 14px;
-            color: var(--text-secondary);
-            min-height: 20px;
-        }
-
-        /* Status */
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        .status-item {
-            background: var(--bg-input);
-            border-radius: 8px;
+        .activation-phrase-display {
+            margin-top: 16px;
             padding: 12px;
-            text-align: center;
+            background: rgba(255, 0, 229, 0.1);
+            border-radius: 8px;
+            border: 1px solid var(--neon-accent);
         }
 
-        .status-label {
+        .activation-phrases-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .phrase-tag {
+            padding: 6px 12px;
+            background: rgba(0, 255, 157, 0.1);
+            border: 1px solid var(--neon-primary);
+            border-radius: 6px;
             font-size: 12px;
+            color: var(--neon-primary);
+        }
+
+        /* Mode Selector */
+        .mode-selector {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 4px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
             color: var(--text-secondary);
-            margin-bottom: 5px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
-        .status-value {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .status-value.active {
-            color: var(--success);
-        }
-
-        .status-value.inactive {
-            color: var(--text-secondary);
+        .mode-btn.active {
+            background: var(--neon-primary);
+            color: var(--bg-primary);
+            box-shadow: var(--shadow-glow);
         }
 
         /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 157, 0.4); }
-            50% { box-shadow: 0 0 40px rgba(0, 255, 157, 0.6); }
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
         }
 
-        /* Notification */
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--bg-card);
-            border-left: 4px solid var(--primary);
-            border-radius: 8px;
-            padding: 15px 20px;
-            box-shadow: var(--shadow);
-            z-index: 1000;
-            transform: translateX(150%);
-            transition: transform 0.3s ease;
-            max-width: 350px;
+        @keyframes voicePulse {
+            0% {
+                height: 5px;
+                opacity: 0.3;
+            }
+            100% {
+                height: 30px;
+                opacity: 1;
+            }
         }
 
-        .notification.show {
-            transform: translateX(0);
-        }
-
-        .notification.success {
-            border-left-color: var(--success);
-        }
-
-        .notification.error {
-            border-left-color: var(--danger);
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 5px var(--neon-primary);
+            }
+            50% {
+                box-shadow: 0 0 20px var(--neon-primary);
+            }
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
         }
 
         ::-webkit-scrollbar-track {
-            background: var(--bg-input);
+            background: var(--bg-tertiary);
+            border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 3px;
+            background: var(--neon-primary);
+            border-radius: 4px;
         }
 
-        /* Mobile */
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-secondary);
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .chat-messages {
-                max-height: 400px;
+            .main-container {
+                padding: 16px;
+                gap: 16px;
             }
-            
-            .message {
-                max-width: 90%;
+
+            .header {
+                padding: 12px 16px;
+                flex-direction: column;
+                gap: 12px;
             }
-            
+
             .status-grid {
                 grid-template-columns: 1fr;
             }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                padding: 12px 16px;
+            }
+
+            .message {
+                max-width: 100%;
+            }
+        }
+
+        /* Connection Test Animation */
+        .testing {
+            animation: pulse 1s infinite;
+        }
+
+        /* Wake Lock Status */
+        .wake-lock-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background: rgba(0, 255, 157, 0.1);
+            border: 1px solid var(--neon-primary);
+            border-radius: 6px;
+            font-size: 11px;
+            color: var(--neon-primary);
+            z-index: 1000;
+            display: none;
+        }
+
+        .wake-lock-status.active {
+            display: block;
+            animation: glow 2s infinite;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="logo-text">Pixel AI</div>
-            </div>
-            
-            <div class="header-controls">
-                <div class="language-switcher">
-                    <button class="lang-btn active" data-lang="ru">RU</button>
-                    <button class="lang-btn" data-lang="en">EN</button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <!-- AI Settings -->
-            <div class="card">
-                <h3 class="card-title">
-                    <i class="fas fa-brain"></i>
-                    Настройки AI
-                </h3>
-                
-                <div class="form-group">
-                    <label class="form-label">OpenRouter API Key</label>
-                    <input type="password" class="form-control" id="apiKey" 
-                           placeholder="sk-or-v1-..." autocomplete="off">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Выберите модель AI</label>
-                    <div class="models-grid" id="modelGrid">
-                        <div class="model-card active" data-model="arcee-ai/trinity-large-preview:free">
-                            <div class="model-name">Trinity Large</div>
-                            <div class="model-provider">Arcee AI</div>
-                        </div>
-                        <div class="model-card" data-model="nvidia/nemotron-nano-12b-v2-vl:free">
-                            <div class="model-name">Nemotron Nano</div>
-                            <div class="model-provider">NVIDIA</div>
-                        </div>
-                        <div class="model-card" data-model="qwen/qwen3-next-80b-a3b-instruct:free">
-                            <div class="model-name">Qwen3 Next</div>
-                            <div class="model-provider">Qwen</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <button class="btn" id="saveSettings">
-                    <i class="fas fa-save"></i>
-                    Сохранить настройки
-                </button>
-            </div>
-
-            <!-- Voice Control -->
-            <div class="card">
-                <h3 class="card-title">
-                    <i class="fas fa-microphone"></i>
-                    Голосовое управление
-                </h3>
-                
-                <div class="mic-container">
-                    <button class="mic-btn" id="micBtn" disabled>
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                    <div class="mic-status" id="micStatus">Микрофон отключен</div>
-                </div>
-            </div>
-
-            <!-- ESP32 Control -->
-            <div class="card">
-                <h3 class="card-title">
-                    <i class="fas fa-microchip"></i>
-                    Управление ESP32 (опционально)
-                </h3>
-                
-                <div class="form-group">
-                    <label class="form-label">IP адрес ESP32</label>
-                    <input type="text" class="form-control" id="espIp" 
-                           placeholder="192.168.1.100" autocomplete="off">
-                </div>
-                
-                <div class="status-grid">
-                    <div class="status-item">
-                        <div class="status-label">Соединение</div>
-                        <div class="status-value inactive" id="espStatus">Не подключен</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Светодиод</div>
-                        <div class="status-value inactive" id="ledStatus">Выключен</div>
-                    </div>
-                </div>
-                
-                <button class="btn btn-secondary" id="testESP32" disabled>
-                    Проверить соединение
-                </button>
-            </div>
-
-            <!-- System Status -->
-            <div class="card">
-                <h3 class="card-title">
-                    <i class="fas fa-chart-bar"></i>
-                    Статус системы
-                </h3>
-                
-                <div class="status-grid">
-                    <div class="status-item">
-                        <div class="status-label">AI</div>
-                        <div class="status-value inactive" id="aiStatus">Неактивно</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Голос</div>
-                        <div class="status-value inactive" id="voiceStatus">Неактивно</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Режим</div>
-                        <div class="status-value" id="modeStatus">Ожидание</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Язык</div>
-                        <div class="status-value" id="langStatus">RU</div>
-                    </div>
-                </div>
-                
-                <button class="btn btn-secondary" id="resetSystem">
-                    <i class="fas fa-redo"></i>
-                    Сбросить систему
-                </button>
-            </div>
-        </aside>
-
-        <!-- Chat Area -->
-        <main class="chat-area">
-            <div class="chat-messages" id="chatMessages">
-                <div class="message system">
-                    Добро пожаловать в Pixel AI!<br>
-                    Для начала работы введите API ключ OpenRouter и выберите модель AI.
-                    <div class="message-time" id="currentTime"></div>
-                </div>
-            </div>
-            
-            <div class="input-area">
-                <div class="input-wrapper">
-                    <textarea class="chat-input" id="chatInput" 
-                              placeholder="Введите сообщение или скажите 'Пиксель' для активации голосом..."></textarea>
-                    <button class="send-btn" id="sendBtn">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        </main>
+    <!-- Wake Lock Status Indicator -->
+    <div class="wake-lock-status" id="wakeLockStatus">
+        🔒 WAKE LOCK ACTIVE
     </div>
 
-    <!-- Notification Container -->
-    <div id="notificationContainer"></div>
+    <!-- Header -->
+    <header class="header glass-panel">
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="logo-text" id="logoText">NEURAL TERMINAL v3.2</div>
+        </div>
+        
+        <div class="header-controls">
+            <div class="language-selector">
+                <button class="lang-btn active" onclick="setLanguage('ru')" id="langRu">RU</button>
+                <button class="lang-btn" onclick="setLanguage('en')" id="langEn">EN</button>
+            </div>
+            
+            <div class="status-indicator online" id="globalStatus"></div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Terminal Section -->
+        <section class="terminal-section">
+            <div class="terminal-card glass-panel">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        <span id="terminalTitle">КОНСОЛЬ ВЗАИМОДЕЙСТВИЯ</span>
+                    </div>
+                    <div class="terminal-controls">
+                        <button class="terminal-btn" onclick="clearTerminal()" title="Очистить">⌫</button>
+                        <button class="terminal-btn" onclick="exportLogs()" title="Экспорт">⤓</button>
+                    </div>
+                </div>
+                
+                <div id="terminal">
+                    <div class="message system">
+                        <span id="welcomeMessage">Система инициализирована. Введите API ключ для начала работы.</span>
+                        <span class="message-timestamp" id="currentTime"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls Section -->
+        <section class="controls-section">
+            <!-- Status Card -->
+            <div class="status-card glass-panel">
+                <div class="card-title" id="statusTitle">СТАТУС СИСТЕМЫ</div>
+                
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-label" id="aiStatusLabel">AI</div>
+                        <div class="status-value">
+                            <span class="status-indicator offline" id="aiStatusIndicator"></span>
+                            <span id="aiStatusText">OFFLINE</span>
+                        </div>
+                    </div>
+                    
+                    <div class="status-item">
+                        <div class="status-label" id="voiceStatusLabel">ГОЛОС</div>
+                        <div class="status-value">
+                            <span class="status-indicator offline" id="voiceStatusIndicator"></span>
+                            <span id="voiceStatusText">DISABLED</span>
+                        </div>
+                    </div>
+                    
+                    <div class="status-item">
+                        <div class="status-label" id="espStatusLabel">ESP32</div>
+                        <div class="status-value">
+                            <span class="status-indicator offline" id="espStatusIndicator"></span>
+                            <span id="espStatusText">NOT CONNECTED</span>
+                        </div>
+                    </div>
+                    
+                    <div class="status-item">
+                        <div class="status-label" id="memoryStatusLabel">ПАМЯТЬ</div>
+                        <div class="status-value" id="memoryStatusText">0%</div>
+                    </div>
+                </div>
+                
+                <div class="connection-status">
+                    <div class="connection-item">
+                        <span id="connectionLabel">Соединение с ESP32:</span>
+                        <span class="status-value">
+                            <span class="status-indicator offline" id="espConnectionIndicator"></span>
+                            <span id="espConnectionText">Нет данных</span>
+                        </span>
+                    </div>
+                    <div class="connection-item">
+                        <span id="lastPingLabel">Последний пинг:</span>
+                        <span id="lastPingText">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Selection Card -->
+            <div class="config-card glass-panel">
+                <div class="card-title" id="modeTitle">РЕЖИМ РАБОТЫ</div>
+                
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="setMode('voice')" id="modeVoice">
+                        <span>🎤</span>
+                        <span id="modeVoiceText">ГОЛОС</span>
+                    </button>
+                    <button class="mode-btn" onclick="setMode('text')" id="modeTextBtn">
+                        <span>⌨️</span>
+                        <span id="modeTextText">ТЕКСТ</span>
+                    </button>
+                    <button class="mode-btn" onclick="setMode('hybrid')" id="modeHybrid">
+                        <span>🔀</span>
+                        <span id="modeHybridText">ГИБРИД</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Voice Control Card -->
+            <div class="voice-card glass-panel" id="voiceCard">
+                <div class="card-title" id="voiceControlTitle">ГОЛОСОВОЕ УПРАВЛЕНИЕ</div>
+                
+                <div class="voice-control">
+                    <div class="voice-status" id="voiceStatusDisplay">
+                        <div id="voiceStatusMessage">Голосовое управление отключено</div>
+                    </div>
+                    
+                    <div class="voice-visualizer" id="voiceVisualizer"></div>
+                    
+                    <div class="activation-phrase-display">
+                        <div class="input-label" id="activationLabel">АКТИВАЦИОННЫЕ ФРАЗЫ:</div>
+                        <div class="activation-phrases-container">
+                            <span class="phrase-tag">пиксель</span>
+                            <span class="phrase-tag">pixel</span>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button class="btn-primary" onclick="toggleVoiceControl()" id="voiceToggleBtn">
+                            <span>🎤</span>
+                            <span id="voiceToggleText">ВКЛЮЧИТЬ ГОЛОС</span>
+                        </button>
+                        <button class="btn-secondary" onclick="testMicrophone()" id="testMicBtn">
+                            <span>🎧</span>
+                            <span id="testMicText">ТЕСТ МИКРОФОНА</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Input Card -->
+            <div class="input-card glass-panel" id="textInputCard" style="display: none;">
+                <div class="card-title" id="textInputTitle">ТЕКСТОВЫЙ ВВОД</div>
+                
+                <div class="input-group">
+                    <textarea id="textInput" placeholder="Введите ваш запрос здесь..." rows="4"></textarea>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-primary" onclick="sendTextRequest()" id="sendTextBtn">
+                        <span>🚀</span>
+                        <span id="sendTextText">ОТПРАВИТЬ</span>
+                    </button>
+                    <button class="btn-secondary" onclick="clearTextInput()">
+                        <span>⌫</span>
+                        <span id="clearTextText">ОЧИСТИТЬ</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Card -->
+            <div class="config-card glass-panel">
+                <div class="card-title" id="configTitle">КОНФИГУРАЦИЯ</div>
+                
+                <div class="input-group">
+                    <label class="input-label" for="apiKey">OPENROUTER API KEY</label>
+                    <input type="password" id="apiKey" placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label" for="espIp">ESP32 IP АДРЕС</label>
+                    <input type="text" id="espIp" placeholder="192.168.1.100">
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-primary" onclick="initializeSystem()" id="initBtn">
+                        <span>⚡</span>
+                        <span id="initText">ИНИЦИАЛИЗИРОВАТЬ</span>
+                    </button>
+                    <button class="btn-secondary" onclick="testConnections()" id="testBtn" disabled>
+                        <span>🔧</span>
+                        <span id="testText">ТЕСТ СИСТЕМЫ</span>
+                    </button>
+                    <button class="btn-danger" onclick="resetSystem()" id="resetBtn">
+                        <span>🔄</span>
+                        <span id="resetText">СБРОС</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script>
         // ============================================
-        // КОНФИГУРАЦИЯ
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И КОНСТАНТЫ
         // ============================================
-        const AppState = {
-            currentLang: 'ru',
+        const SystemState = {
+            // Основные настройки
             apiKey: '',
-            selectedModel: 'arcee-ai/trinity-large-preview:free',
             espIp: '',
-            espConnected: false,
-            ledState: 'off',
-            voiceActive: false,
-            isListening: false,
+            language: 'ru',
+            mode: 'voice',
+            
+            // Активационные фразы (фиксированные для обоих языков)
+            activationPhrases: ['пиксель', 'pixel'],
+            
+            // Состояния системы
+            systemActive: false,
+            voiceEnabled: false,
+            listeningForActivation: false,
+            listeningForCommand: false,
             isProcessing: false,
-            speechRecognition: null,
-            speechSynthesis: window.speechSynthesis || null,
+            isSpeaking: false,
+            microphoneGranted: false,
+            
+            // Технические объекты
             wakeLock: null,
-            recognitionActive: false,
-            currentMode: 'WAIT_BOOT'
+            speechRecognition: null,
+            speechSynthesis: window.speechSynthesis,
+            visualizerInterval: null,
+            connectionMonitor: null,
+            microphoneStream: null,
+            
+            // Счетчики и ограничения
+            retryCount: 0,
+            maxRetries: 3,
+            logEntries: 0,
+            maxLogEntries: 200,
+            lastCommandTime: 0,
+            commandCooldown: 1500,
+            lastESP32Ping: 0,
+            
+            // Языковые ресурсы (ПОЛНЫЙ ПЕРЕВОД)
+            translations: {
+                ru: {
+                    // Интерфейс
+                    terminalTitle: 'КОНСОЛЬ ВЗАИМОДЕЙСТВИЯ',
+                    statusTitle: 'СТАТУС СИСТЕМЫ',
+                    modeTitle: 'РЕЖИМ РАБОТЫ',
+                    voiceControlTitle: 'ГОЛОСОВОЕ УПРАВЛЕНИЕ',
+                    textInputTitle: 'ТЕКСТОВЫЙ ВВОД',
+                    configTitle: 'КОНФИГУРАЦИЯ',
+                    logoText: 'NEURAL TERMINAL v3.2',
+                    
+                    // Кнопки
+                    initText: 'ИНИЦИАЛИЗИРОВАТЬ',
+                    testText: 'ТЕСТ СИСТЕМЫ',
+                    resetText: 'СБРОС',
+                    voiceToggleText: 'ВКЛЮЧИТЬ ГОЛОС',
+                    voiceToggleOffText: 'ВЫКЛЮЧИТЬ ГОЛОС',
+                    testMicText: 'ТЕСТ МИКРОФОНА',
+                    sendTextText: 'ОТПРАВИТЬ',
+                    clearTextText: 'ОЧИСТИТЬ',
+                    
+                    // Режимы
+                    modeVoiceText: 'ГОЛОС',
+                    modeTextText: 'ТЕКСТ',
+                    modeHybridText: 'ГИБРИД',
+                    
+                    // Статусы
+                    aiStatusLabel: 'AI',
+                    voiceStatusLabel: 'ГОЛОС',
+                    espStatusLabel: 'ESP32',
+                    memoryStatusLabel: 'ПАМЯТЬ',
+                    connectionLabel: 'Соединение с ESP32:',
+                    lastPingLabel: 'Последний пинг:',
+                    activationLabel: 'АКТИВАЦИОННЫЕ ФРАЗЫ:',
+                    
+                    // Статусные тексты
+                    aiStatusOnline: 'ONLINE',
+                    aiStatusOffline: 'OFFLINE',
+                    voiceStatusActive: 'ACTIVE',
+                    voiceStatusDisabled: 'DISABLED',
+                    voiceStatusListening: 'LISTENING',
+                    espStatusConfigured: 'CONFIGURED',
+                    espStatusNotConfigured: 'NOT CONFIGURED',
+                    espStatusConnected: 'CONNECTED',
+                    espStatusDisconnected: 'DISCONNECTED',
+                    
+                    // Сообщения
+                    welcomeMessage: 'Система инициализирована. Введите API ключ для начала работы.',
+                    systemInitialized: 'Система инициализирована',
+                    voiceControlEnabled: 'Голосовое управление включено',
+                    voiceControlDisabled: 'Голосовое управление выключено',
+                    microphoneTestSuccess: 'Микрофон работает нормально',
+                    microphoneTestFail: 'Не удалось получить доступ к микрофону',
+                    systemTestStarted: 'Тестирование системы...',
+                    systemTestComplete: 'Тестирование завершено',
+                    systemReset: 'Система сброшена',
+                    
+                    // Голосовые сообщения
+                    voiceStatusMessages: {
+                        disabled: 'Голосовое управление отключено',
+                        waiting: 'Ожидание активационной фразы...',
+                        listening: 'Слушаю команду...',
+                        processing: 'Обработка...',
+                        speaking: 'Отвечаю...'
+                    },
+                    
+                    // Ответы голосом
+                    activationResponse: "Да, слушаю вас!",
+                    errorResponse: "Произошла ошибка при обработке запроса",
+                    
+                    // Подсказки
+                    apiKeyPlaceholder: 'sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx',
+                    espIpPlaceholder: '192.168.1.100',
+                    textInputPlaceholder: 'Введите ваш запрос здесь...'
+                },
+                en: {
+                    // Interface
+                    terminalTitle: 'INTERACTION CONSOLE',
+                    statusTitle: 'SYSTEM STATUS',
+                    modeTitle: 'OPERATION MODE',
+                    voiceControlTitle: 'VOICE CONTROL',
+                    textInputTitle: 'TEXT INPUT',
+                    configTitle: 'CONFIGURATION',
+                    logoText: 'NEURAL TERMINAL v3.2',
+                    
+                    // Buttons
+                    initText: 'INITIALIZE',
+                    testText: 'TEST SYSTEM',
+                    resetText: 'RESET',
+                    voiceToggleText: 'ENABLE VOICE',
+                    voiceToggleOffText: 'DISABLE VOICE',
+                    testMicText: 'TEST MIC',
+                    sendTextText: 'SEND',
+                    clearTextText: 'CLEAR',
+                    
+                    // Modes
+                    modeVoiceText: 'VOICE',
+                    modeTextText: 'TEXT',
+                    modeHybridText: 'HYBRID',
+                    
+                    // Statuses
+                    aiStatusLabel: 'AI',
+                    voiceStatusLabel: 'VOICE',
+                    espStatusLabel: 'ESP32',
+                    memoryStatusLabel: 'MEMORY',
+                    connectionLabel: 'ESP32 Connection:',
+                    lastPingLabel: 'Last ping:',
+                    activationLabel: 'ACTIVATION PHRASES:',
+                    
+                    // Status texts
+                    aiStatusOnline: 'ONLINE',
+                    aiStatusOffline: 'OFFLINE',
+                    voiceStatusActive: 'ACTIVE',
+                    voiceStatusDisabled: 'DISABLED',
+                    voiceStatusListening: 'LISTENING',
+                    espStatusConfigured: 'CONFIGURED',
+                    espStatusNotConfigured: 'NOT CONFIGURED',
+                    espStatusConnected: 'CONNECTED',
+                    espStatusDisconnected: 'DISCONNECTED',
+                    
+                    // Messages
+                    welcomeMessage: 'System initialized. Enter API key to start.',
+                    systemInitialized: 'System initialized',
+                    voiceControlEnabled: 'Voice control enabled',
+                    voiceControlDisabled: 'Voice control disabled',
+                    microphoneTestSuccess: 'Microphone working normally',
+                    microphoneTestFail: 'Failed to access microphone',
+                    systemTestStarted: 'Testing system...',
+                    systemTestComplete: 'Testing complete',
+                    systemReset: 'System reset',
+                    
+                    // Voice messages
+                    voiceStatusMessages: {
+                        disabled: 'Voice control disabled',
+                        waiting: 'Waiting for activation phrase...',
+                        listening: 'Listening for command...',
+                        processing: 'Processing...',
+                        speaking: 'Speaking...'
+                    },
+                    
+                    // Voice responses
+                    activationResponse: "Yes, I'm listening!",
+                    errorResponse: "An error occurred while processing the request",
+                    
+                    // Placeholders
+                    apiKeyPlaceholder: 'sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx',
+                    espIpPlaceholder: '192.168.1.100',
+                    textInputPlaceholder: 'Enter your query here...'
+                }
+            }
         };
 
         // ============================================
-        // ИНИЦИАЛИЗАЦИЯ
+        // ОСНОВНЫЕ ФУНКЦИИ СИСТЕМЫ
         // ============================================
-        document.addEventListener('DOMContentLoaded', () => {
-            loadSettings();
-            setupEventListeners();
-            updateTime();
-            setInterval(updateTime, 60000);
-            addSystemMessage('Система загружена. Настройте API ключ для начала работы.');
-        });
-
-        function loadSettings() {
-            const savedApiKey = localStorage.getItem('pixel_ai_api_key');
-            const savedModel = localStorage.getItem('pixel_ai_model');
-            const savedEspIp = localStorage.getItem('pixel_ai_esp_ip');
-            const savedLang = localStorage.getItem('pixel_ai_lang');
-            
-            if (savedApiKey) {
-                document.getElementById('apiKey').value = savedApiKey;
-                AppState.apiKey = savedApiKey;
-            }
-            
-            if (savedModel) {
-                AppState.selectedModel = savedModel;
-                document.querySelectorAll('.model-card').forEach(card => {
-                    card.classList.remove('active');
-                    if (card.dataset.model === savedModel) {
-                        card.classList.add('active');
-                    }
-                });
-            }
-            
-            if (savedEspIp) {
-                document.getElementById('espIp').value = savedEspIp;
-                AppState.espIp = savedEspIp;
-                document.getElementById('testESP32').disabled = false;
-            }
-            
-            if (savedLang) {
-                AppState.currentLang = savedLang;
-                document.querySelectorAll('.lang-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.lang === savedLang) {
-                        btn.classList.add('active');
-                    }
-                });
-                updateLanguageStatus();
-            }
-        }
-
-        function updateTime() {
-            const timeElement = document.getElementById('currentTime');
-            if (timeElement) {
-                const now = new Date();
-                timeElement.textContent = now.toLocaleTimeString('ru-RU', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
-        }
-
-        // ============================================
-        // СИСТЕМА СООБЩЕНИЙ
-        // ============================================
-        function addMessageToChat(text, type = 'system') {
-            const chatMessages = document.getElementById('chatMessages');
+        function logToTerminal(message, type = 'system') {
+            const terminal = document.getElementById('terminal');
             const messageDiv = document.createElement('div');
-            
-            const timestamp = new Date().toLocaleTimeString('ru-RU', {
-                hour: '2-digit',
-                minute: '2-digit'
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('ru-RU', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
             });
             
             messageDiv.className = `message ${type}`;
             messageDiv.innerHTML = `
-                <div>${text}</div>
-                <div class="message-time">${timestamp}</div>
+                ${message}
+                <span class="message-timestamp">${timestamp}</span>
             `;
             
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            terminal.appendChild(messageDiv);
+            terminal.scrollTop = terminal.scrollHeight;
+            
+            // Управление памятью
+            SystemState.logEntries++;
+            updateMemoryStatus();
+            
+            if (SystemState.logEntries > SystemState.maxLogEntries) {
+                const firstMessage = terminal.querySelector('.message');
+                if (firstMessage) {
+                    terminal.removeChild(firstMessage);
+                    SystemState.logEntries--;
+                }
+            }
         }
 
-        function addSystemMessage(text) {
-            addMessageToChat(text, 'system');
+        function updateMemoryStatus() {
+            const percent = Math.min(100, Math.round((SystemState.logEntries / SystemState.maxLogEntries) * 100));
+            document.getElementById('memoryStatusText').textContent = `${percent}%`;
         }
 
-        function addUserMessage(text) {
-            addMessageToChat(text, 'user');
+        function updateStatusDisplay() {
+            // AI Status
+            const aiIndicator = document.getElementById('aiStatusIndicator');
+            const aiText = document.getElementById('aiStatusText');
+            aiIndicator.className = SystemState.systemActive ? 'status-indicator online' : 'status-indicator offline';
+            aiText.textContent = SystemState.systemActive ? 
+                SystemState.translations[SystemState.language].aiStatusOnline : 
+                SystemState.translations[SystemState.language].aiStatusOffline;
+            
+            // Voice Status
+            const voiceIndicator = document.getElementById('voiceStatusIndicator');
+            const voiceText = document.getElementById('voiceStatusText');
+            if (SystemState.voiceEnabled) {
+                voiceIndicator.className = SystemState.listeningForCommand ? 'status-indicator pending' : 'status-indicator online';
+                voiceText.textContent = SystemState.listeningForCommand ? 
+                    SystemState.translations[SystemState.language].voiceStatusListening : 
+                    SystemState.translations[SystemState.language].voiceStatusActive;
+            } else {
+                voiceIndicator.className = 'status-indicator offline';
+                voiceText.textContent = SystemState.translations[SystemState.language].voiceStatusDisabled;
+            }
+            
+            // ESP32 Status
+            const espIndicator = document.getElementById('espStatusIndicator');
+            const espText = document.getElementById('espStatusText');
+            espIndicator.className = SystemState.espIp ? 'status-indicator pending' : 'status-indicator offline';
+            espText.textContent = SystemState.espIp ? 
+                SystemState.translations[SystemState.language].espStatusConfigured : 
+                SystemState.translations[SystemState.language].espStatusNotConfigured;
+            
+            // Глобальный статус
+            const globalStatus = document.getElementById('globalStatus');
+            if (SystemState.voiceEnabled && SystemState.listeningForCommand) {
+                globalStatus.className = 'status-indicator pending';
+            } else if (SystemState.systemActive) {
+                globalStatus.className = 'status-indicator online';
+            } else {
+                globalStatus.className = 'status-indicator offline';
+            }
         }
 
-        function addAIMessage(text) {
-            addMessageToChat(text, 'ai');
+        function updateVoiceStatus(messageKey) {
+            const voiceStatus = document.getElementById('voiceStatusDisplay');
+            const voiceMessage = document.getElementById('voiceStatusMessage');
+            
+            const messages = SystemState.translations[SystemState.language].voiceStatusMessages;
+            voiceMessage.textContent = messages[messageKey] || messageKey;
+            
+            voiceStatus.className = 'voice-status';
+            if (messageKey === 'waiting' || messageKey === 'listening') {
+                voiceStatus.classList.add('active');
+            }
         }
 
         // ============================================
-        // ГОЛОСОВОЕ УПРАВЛЕНИЕ (ТОЧНО КАК В ВАШЕМ КОДЕ)
+        // УПРАВЛЕНИЕ ЯЗЫКОМ (ИСПРАВЛЕННОЕ)
+        // ============================================
+        function setLanguage(lang) {
+            SystemState.language = lang;
+            document.getElementById('htmlLang').lang = lang;
+            
+            // Обновляем кнопки выбора языка
+            document.getElementById('langRu').classList.toggle('active', lang === 'ru');
+            document.getElementById('langEn').classList.toggle('active', lang === 'en');
+            
+            // Обновляем все тексты
+            updateInterfaceLanguage();
+            
+            // Если система активна и голосовое управление включено, перезапускаем распознавание
+            if (SystemState.systemActive && SystemState.voiceEnabled && SystemState.speechRecognition) {
+                restartSpeechRecognition();
+            }
+            
+            logToTerminal(lang === 'ru' ? 'Язык изменен на Русский' : 'Language changed to English', 'system');
+        }
+
+        function restartSpeechRecognition() {
+            if (SystemState.speechRecognition) {
+                SystemState.speechRecognition.stop();
+                setTimeout(() => {
+                    initSpeechRecognition();
+                    if (SystemState.voiceEnabled) {
+                        SystemState.speechRecognition.start();
+                    }
+                }, 300);
+            }
+        }
+
+        function updateInterfaceLanguage() {
+            const t = SystemState.translations[SystemState.language];
+            
+            // Обновляем заголовки
+            document.getElementById('terminalTitle').textContent = t.terminalTitle;
+            document.getElementById('statusTitle').textContent = t.statusTitle;
+            document.getElementById('modeTitle').textContent = t.modeTitle;
+            document.getElementById('voiceControlTitle').textContent = t.voiceControlTitle;
+            document.getElementById('textInputTitle').textContent = t.textInputTitle;
+            document.getElementById('configTitle').textContent = t.configTitle;
+            document.getElementById('logoText').textContent = t.logoText;
+            
+            // Обновляем кнопки
+            document.getElementById('initText').textContent = t.initText;
+            document.getElementById('testText').textContent = t.testText;
+            document.getElementById('resetText').textContent = t.resetText;
+            document.getElementById('testMicText').textContent = t.testMicText;
+            document.getElementById('sendTextText').textContent = t.sendTextText;
+            document.getElementById('clearTextText').textContent = t.clearTextText;
+            
+            // Обновляем текст кнопки голосового управления
+            const voiceToggleBtn = document.getElementById('voiceToggleBtn');
+            if (SystemState.voiceEnabled) {
+                voiceToggleBtn.querySelector('span:nth-child(2)').textContent = t.voiceToggleOffText;
+            } else {
+                voiceToggleBtn.querySelector('span:nth-child(2)').textContent = t.voiceToggleText;
+            }
+            
+            // Обновляем режимы
+            document.getElementById('modeVoiceText').textContent = t.modeVoiceText;
+            document.getElementById('modeTextText').textContent = t.modeTextText;
+            document.getElementById('modeHybridText').textContent = t.modeHybridText;
+            
+            // Обновляем статусы
+            document.getElementById('aiStatusLabel').textContent = t.aiStatusLabel;
+            document.getElementById('voiceStatusLabel').textContent = t.voiceStatusLabel;
+            document.getElementById('espStatusLabel').textContent = t.espStatusLabel;
+            document.getElementById('memoryStatusLabel').textContent = t.memoryStatusLabel;
+            document.getElementById('connectionLabel').textContent = t.connectionLabel;
+            document.getElementById('lastPingLabel').textContent = t.lastPingLabel;
+            document.getElementById('activationLabel').textContent = t.activationLabel;
+            
+            // Обновляем плейсхолдеры
+            document.getElementById('textInput').placeholder = t.textInputPlaceholder;
+            document.getElementById('apiKey').placeholder = t.apiKeyPlaceholder;
+            document.getElementById('espIp').placeholder = t.espIpPlaceholder;
+            
+            // Обновляем приветственное сообщение
+            document.getElementById('welcomeMessage').textContent = t.welcomeMessage;
+            
+            // Обновляем статус голосового управления
+            if (SystemState.voiceEnabled) {
+                if (SystemState.listeningForCommand) {
+                    updateVoiceStatus('listening');
+                } else {
+                    updateVoiceStatus('waiting');
+                }
+            } else {
+                updateVoiceStatus('disabled');
+            }
+            
+            // Обновляем все статусы системы
+            updateStatusDisplay();
+        }
+
+        // ============================================
+        // УПРАВЛЕНИЕ РЕЖИМАМИ
+        // ============================================
+        function setMode(mode) {
+            SystemState.mode = mode;
+            
+            // Обновляем кнопки режимов
+            document.getElementById('modeVoice').classList.toggle('active', mode === 'voice');
+            document.getElementById('modeTextBtn').classList.toggle('active', mode === 'text');
+            document.getElementById('modeHybrid').classList.toggle('active', mode === 'hybrid');
+            
+            // Показываем/скрываем соответствующие панели
+            const voiceCard = document.getElementById('voiceCard');
+            const textInputCard = document.getElementById('textInputCard');
+            
+            if (mode === 'voice') {
+                voiceCard.style.display = 'block';
+                textInputCard.style.display = 'none';
+            } else if (mode === 'text') {
+                voiceCard.style.display = 'none';
+                textInputCard.style.display = 'block';
+            } else {
+                voiceCard.style.display = 'block';
+                textInputCard.style.display = 'block';
+            }
+            
+            const modeText = mode === 'ru' ? mode.toUpperCase() : 
+                           mode === 'voice' ? 'ГОЛОС' : 
+                           mode === 'text' ? 'ТЕКСТ' : 'ГИБРИД';
+            logToTerminal(`Режим изменен: ${modeText}`, 'system');
+        }
+
+        // ============================================
+        // ГОЛОСОВОЕ УПРАВЛЕНИЕ (ПОЛНОСТЬЮ ИСПРАВЛЕННОЕ)
         // ============================================
         function initSpeechRecognition() {
-            if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-                showNotification('Голосовое управление не поддерживается', 'error');
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                logToTerminal('Браузер не поддерживает распознавание речи', 'error');
                 return false;
             }
             
             try {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                AppState.speechRecognition = new SpeechRecognition();
+                SystemState.speechRecognition = new SpeechRecognition();
                 
-                // Настройки как в вашем коде
-                AppState.speechRecognition.continuous = false;
-                AppState.speechRecognition.interimResults = false;
-                AppState.speechRecognition.lang = AppState.currentLang === 'ru' ? 'ru-RU' : 'en-US';
-                AppState.speechRecognition.maxAlternatives = 1;
+                // КРИТИЧЕСКИ ВАЖНЫЕ НАСТРОЙКИ
+                SystemState.speechRecognition.continuous = true;
+                SystemState.speechRecognition.interimResults = false;
+                SystemState.speechRecognition.lang = SystemState.language === 'ru' ? 'ru-RU' : 'en-US';
+                SystemState.speechRecognition.maxAlternatives = 1;
+                
+                // Настраиваем чувствительность для лучшего распознавания
+                SystemState.speechRecognition.onaudiostart = () => {
+                    console.log('Микрофон активирован');
+                };
+                
+                SystemState.speechRecognition.onsoundstart = () => {
+                    console.log('Обнаружен звук');
+                };
+                
+                SystemState.speechRecognition.onspeechstart = () => {
+                    console.log('Обнаружена речь');
+                };
+                
+                SystemState.speechRecognition.onstart = () => {
+                    logToTerminal('Распознавание речи активировано', 'system');
+                    SystemState.listeningForActivation = true;
+                    updateVoiceStatus('waiting');
+                    updateVisualizer();
+                };
+                
+                SystemState.speechRecognition.onresult = (event) => {
+                    const result = event.results[event.results.length - 1];
+                    const transcript = result[0].transcript.toLowerCase().trim();
+                    const confidence = result[0].confidence;
+                    
+                    console.log(`Распознано: "${transcript}" (${(confidence * 100).toFixed(1)}%)`);
+                    logToTerminal(`Распознано: "${transcript}"`, 'user');
+                    
+                    // Проверяем активационные фразы (обе, независимо от языка)
+                    if (SystemState.listeningForActivation) {
+                        const isActivationPhrase = SystemState.activationPhrases.some(phrase => 
+                            transcript.includes(phrase.toLowerCase())
+                        );
+                        
+                        if (isActivationPhrase) {
+                            handleActivation();
+                        }
+                    } 
+                    // Если слушаем команду
+                    else if (SystemState.listeningForCommand) {
+                        handleVoiceCommand(transcript);
+                    }
+                };
+                
+                SystemState.speechRecognition.onerror = (event) => {
+                    // Игнорируем "тихие" ошибки
+                    if (event.error === 'no-speech' || event.error === 'audio-capture') {
+                        return;
+                    }
+                    
+                    console.error('Ошибка распознавания:', event.error);
+                    logToTerminal(`Ошибка распознавания: ${event.error}`, 'error');
+                    
+                    // Автоматический перезапуск
+                    if (SystemState.voiceEnabled && SystemState.retryCount < SystemState.maxRetries) {
+                        SystemState.retryCount++;
+                        setTimeout(() => {
+                            if (SystemState.voiceEnabled) {
+                                SystemState.speechRecognition.start();
+                            }
+                        }, 1000);
+                    }
+                };
+                
+                SystemState.speechRecognition.onend = () => {
+                    console.log('Распознавание остановлено');
+                    
+                    // Автоматический перезапуск если система активна
+                    if (SystemState.voiceEnabled && SystemState.systemActive && !SystemState.isProcessing) {
+                        setTimeout(() => {
+                            if (SystemState.voiceEnabled) {
+                                SystemState.speechRecognition.start();
+                            }
+                        }, 500);
+                    }
+                };
                 
                 return true;
+                
             } catch (error) {
-                console.error('Ошибка инициализации распознавания речи:', error);
+                console.error('Ошибка инициализации:', error);
+                logToTerminal(`Ошибка инициализации: ${error.message}`, 'error');
                 return false;
             }
         }
 
-        function startWaitingName() {
-            if (!AppState.voiceActive || !AppState.speechRecognition) return;
+        async function requestMicrophonePermission() {
+            if (SystemState.microphoneGranted) {
+                return true;
+            }
             
-            AppState.currentMode = 'WAIT_NAME';
-            document.getElementById('modeStatus').textContent = 'Ожидание активации';
-            
-            AppState.speechRecognition.onresult = (e) => {
-                const text = e.results[0][0].transcript.toLowerCase();
-                addSystemMessage(`🎤 Слышу: ${text}`);
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('API микрофона не поддерживается');
+                }
                 
-                const activationPhrase = AppState.currentLang === 'ru' ? 'пиксель' : 'pixel';
-                if (text.includes(activationPhrase)) {
-                    addSystemMessage('✅ Активационная фраза распознана');
-                    speak(activationPhrase === 'пиксель' ? 'Слушаю вас' : 'Listening', listenCommand);
-                } else {
-                    restartRecognition();
-                }
-            };
-            
-            AppState.speechRecognition.onerror = (e) => {
-                if (e.error === 'no-speech' || e.error === 'audio-capture') {
-                    restartRecognition();
-                }
-            };
-            
-            AppState.speechRecognition.onend = () => {
-                if (AppState.currentMode === 'WAIT_NAME' && AppState.voiceActive) {
-                    restartRecognition();
-                }
-            };
-            
-            try {
-                AppState.speechRecognition.start();
-                addSystemMessage('🔊 Ожидание активационной фразы...');
-            } catch (e) {
-                console.log('Ошибка запуска распознавания:', e);
-                restartRecognition();
-            }
-        }
-
-        function listenCommand() {
-            if (!AppState.voiceActive || !AppState.speechRecognition) return;
-            
-            AppState.currentMode = 'WAIT_CMD';
-            document.getElementById('modeStatus').textContent = 'Слушаю команду';
-            
-            AppState.speechRecognition.onresult = async (e) => {
-                const cmdText = e.results[0][0].transcript;
-                addUserMessage(cmdText);
-                await processAI(cmdText);
-            };
-            
-            AppState.speechRecognition.onerror = (e) => {
-                if (e.error === 'no-speech' || e.error === 'audio-capture') {
-                    restartRecognition();
-                }
-            };
-            
-            AppState.speechRecognition.onend = () => {
-                if (AppState.currentMode === 'WAIT_CMD' && AppState.voiceActive) {
-                    restartRecognition();
-                }
-            };
-            
-            try {
-                AppState.speechRecognition.start();
-                addSystemMessage('🎤 Говорите команду...');
-            } catch (e) {
-                console.log('Ошибка запуска распознавания:', e);
-                restartRecognition();
-            }
-        }
-
-        function restartRecognition() {
-            if (!AppState.voiceActive) return;
-            
-            setTimeout(() => {
-                try {
-                    if (AppState.currentMode === 'WAIT_NAME') {
-                        startWaitingName();
-                    } else if (AppState.currentMode === 'WAIT_CMD') {
-                        listenCommand();
+                SystemState.microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
                     }
-                } catch (e) {
-                    console.log('Ошибка перезапуска:', e);
-                }
-            }, 300);
+                });
+                
+                SystemState.microphoneGranted = true;
+                logToTerminal('Разрешение на микрофон получено', 'system');
+                return true;
+                
+            } catch (error) {
+                console.error('Ошибка доступа к микрофону:', error);
+                logToTerminal('Не удалось получить доступ к микрофону. Проверьте разрешения.', 'error');
+                return false;
+            }
         }
 
-        function toggleVoiceControl() {
-            if (!AppState.apiKey) {
-                showNotification('Сначала сохраните API ключ', 'error');
+        function handleActivation() {
+            logToTerminal('✓ Активационная фраза распознана', 'system');
+            
+            SystemState.listeningForActivation = false;
+            SystemState.listeningForCommand = true;
+            
+            updateVoiceStatus('listening');
+            
+            // Робот отвечает на текущем языке
+            const response = SystemState.translations[SystemState.language].activationResponse;
+            speakText(response, true);
+        }
+
+        function handleVoiceCommand(transcript) {
+            // Проверяем кулдаун
+            const now = Date.now();
+            if (now - SystemState.lastCommandTime < SystemState.commandCooldown) {
                 return;
             }
             
-            AppState.voiceActive = !AppState.voiceActive;
+            SystemState.lastCommandTime = now;
             
-            if (AppState.voiceActive) {
-                // Активация голосового управления
-                document.getElementById('micBtn').classList.add('listening');
-                document.getElementById('micStatus').textContent = 'Микрофон включен';
-                document.getElementById('voiceStatus').textContent = 'Активно';
-                document.getElementById('voiceStatus').className = 'status-value active';
-                
-                if (!AppState.speechRecognition) {
-                    if (!initSpeechRecognition()) {
-                        return;
-                    }
-                }
-                
-                // Включаем Wake Lock
-                if ('wakeLock' in navigator) {
-                    navigator.wakeLock.request('screen').then(wakeLock => {
-                        AppState.wakeLock = wakeLock;
-                    });
-                }
-                
-                startWaitingName();
-                showNotification('Голосовое управление включено', 'success');
-                
-            } else {
-                // Деактивация голосового управления
-                document.getElementById('micBtn').classList.remove('listening');
-                document.getElementById('micStatus').textContent = 'Микрофон отключен';
-                document.getElementById('voiceStatus').textContent = 'Неактивно';
-                document.getElementById('voiceStatus').className = 'status-value inactive';
-                document.getElementById('modeStatus').textContent = 'Ожидание';
-                
-                if (AppState.speechRecognition) {
-                    AppState.speechRecognition.stop();
-                }
-                
-                if (AppState.wakeLock) {
-                    AppState.wakeLock.release();
-                    AppState.wakeLock = null;
-                }
-                
-                AppState.currentMode = 'WAIT_BOOT';
-                showNotification('Голосовое управление выключено', 'info');
+            // Останавливаем распознавание на время обработки
+            if (SystemState.speechRecognition) {
+                SystemState.speechRecognition.stop();
             }
+            
+            SystemState.listeningForCommand = false;
+            SystemState.isProcessing = true;
+            
+            updateVoiceStatus('processing');
+            
+            // Обрабатываем команду
+            processAIRequest(transcript);
         }
 
         // ============================================
-        // СИНТЕЗ РЕЧИ
+        // ОБРАБОТКА AI ЗАПРОСОВ (ИСПРАВЛЕННЫЙ ЯЗЫК)
         // ============================================
-        function speak(text, callback) {
-            if (!AppState.speechSynthesis) {
-                if (callback) setTimeout(callback, 1000);
+        async function processAIRequest(prompt) {
+            try {
+                logToTerminal('Отправка запроса к AI...', 'system');
+                
+                // Определяем системное сообщение в зависимости от языка
+                const systemMessage = SystemState.language === 'ru' 
+                    ? 'Ты ассистент Пиксель. Отвечай кратко и дружелюбно на русском языке. Не используй команды, только текстовый ответ. Отвечай ТОЛЬКО на русском языке.'
+                    : 'You are Pixel assistant. Respond briefly and friendly in English. Do not use commands, only text responses. Respond ONLY in English.';
+                
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SystemState.apiKey}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Neural Terminal'
+                    },
+                    body: JSON.stringify({
+                        model: SystemState.language === 'ru' ? 'deepseek/deepseek-r1' : 'mistralai/mixtral-8x7b-instruct',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: systemMessage
+                            },
+                            { role: 'user', content: prompt }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 150
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const aiResponse = data.choices[0].message.content;
+                
+                // Удаляем команды из ответа
+                const cleanResponse = aiResponse
+                    .replace(/Commands?:\s*\[.*?\]/gi, '')
+                    .replace(/Text:\s*/gi, '')
+                    .trim();
+                
+                logToTerminal(`AI: ${cleanResponse}`, 'ai');
+                
+                // Озвучиваем ответ
+                updateVoiceStatus('speaking');
+                speakText(cleanResponse, false);
+                
+            } catch (error) {
+                console.error('Ошибка AI:', error);
+                logToTerminal(`Ошибка AI: ${error.message}`, 'error');
+                const errorMsg = SystemState.translations[SystemState.language].errorResponse;
+                speakText(errorMsg, false);
+            }
+        }
+
+        function sendTextRequest() {
+            const textInput = document.getElementById('textInput');
+            const prompt = textInput.value.trim();
+            
+            if (!prompt) {
+                logToTerminal('Введите текст запроса', 'error');
                 return;
             }
+            
+            logToTerminal(`Текстовая команда: "${prompt}"`, 'user');
+            textInput.value = '';
+            
+            SystemState.isProcessing = true;
+            processAIRequest(prompt);
+        }
+
+        // ============================================
+        // СИНТЕЗ РЕЧИ (ИСПРАВЛЕННЫЙ ЯЗЫК)
+        // ============================================
+        function speakText(text, isActivationResponse = false) {
+            if (!SystemState.speechSynthesis) return;
             
             window.speechSynthesis.cancel();
+            
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = AppState.currentLang === 'ru' ? 'ru-RU' : 'en-US';
+            utterance.lang = SystemState.language === 'ru' ? 'ru-RU' : 'en-US';
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
+            utterance.volume = 1.0;
             
-            utterance.onend = callback;
-            utterance.onerror = callback;
+            utterance.onstart = () => {
+                SystemState.isSpeaking = true;
+                updateVisualizer();
+            };
+            
+            utterance.onend = () => {
+                SystemState.isSpeaking = false;
+                SystemState.isProcessing = false;
+                
+                if (isActivationResponse) {
+                    // После ответа на активацию продолжаем слушать команду
+                    SystemState.listeningForCommand = true;
+                    updateVoiceStatus('listening');
+                    if (SystemState.speechRecognition) {
+                        SystemState.speechRecognition.start();
+                    }
+                } else {
+                    // После ответа на команду возвращаемся к ожиданию активации
+                    setTimeout(() => {
+                        SystemState.listeningForActivation = true;
+                        SystemState.listeningForCommand = false;
+                        updateVoiceStatus('waiting');
+                        if (SystemState.speechRecognition && SystemState.voiceEnabled) {
+                            SystemState.speechRecognition.start();
+                        }
+                    }, 1000);
+                }
+            };
+            
+            utterance.onerror = (event) => {
+                console.error('Ошибка синтеза речи:', event);
+                SystemState.isSpeaking = false;
+                SystemState.isProcessing = false;
+                
+                // Восстанавливаем состояние
+                setTimeout(() => {
+                    SystemState.listeningForActivation = true;
+                    SystemState.listeningForCommand = false;
+                    updateVoiceStatus('waiting');
+                    if (SystemState.speechRecognition && SystemState.voiceEnabled) {
+                        SystemState.speechRecognition.start();
+                    }
+                }, 500);
+            };
             
             window.speechSynthesis.speak(utterance);
         }
 
         // ============================================
-        // ОБРАБОТКА AI ЗАПРОСОВ
+        // ВИЗУАЛИЗАТОР ГОЛОСА
         // ============================================
-        async function processAI(prompt) {
-            if (!AppState.apiKey) {
-                showNotification('API ключ не настроен', 'error');
+        function updateVisualizer() {
+            const visualizer = document.getElementById('voiceVisualizer');
+            const isActive = SystemState.listeningForActivation || SystemState.listeningForCommand || SystemState.isSpeaking;
+            const barCount = SystemState.isSpeaking ? 40 : 20;
+            
+            if (!isActive) {
+                visualizer.innerHTML = '';
                 return;
             }
             
-            AppState.isProcessing = true;
-            document.getElementById('modeStatus').textContent = 'Обработка';
+            let html = '';
+            for (let i = 0; i < barCount; i++) {
+                const height = SystemState.isSpeaking 
+                    ? Math.floor(Math.random() * 40 + 10)
+                    : Math.floor(Math.random() * 20 + 5);
+                const delay = i * (SystemState.isSpeaking ? 0.03 : 0.05);
+                const opacity = 0.3 + Math.random() * 0.7;
+                html += `<div class="voice-bar" style="height:${height}px;opacity:${opacity};animation-delay:${delay}s"></div>`;
+            }
             
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        prompt: prompt,
-                        userKey: AppState.apiKey,
-                        model: AppState.selectedModel,
-                        lang: AppState.currentLang
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Ошибка API: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-                    throw new Error('Неверный ответ от AI');
-                }
-                
-                const aiRaw = data.choices[0].message.content;
-                const cleanMsg = aiRaw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-                
-                const txt = cleanMsg.match(/Text:\s*(.*)/i)?.[1] || cleanMsg;
-                const cmd = cleanMsg.match(/Commands:\s*(\w+)/i)?.[1] || "null";
-                
-                addAIMessage(txt);
-                
-                if (cmd !== "null" && AppState.espIp) {
-                    await sendToESP32(cmd);
-                }
-                
-                speak(txt, () => {
-                    if (AppState.voiceActive) {
-                        startWaitingName();
-                    }
-                });
-                
-            } catch (error) {
-                console.error('AI processing error:', error);
-                addSystemMessage(`❌ Ошибка: ${error.message}`);
-                speak('Произошла ошибка', () => {
-                    if (AppState.voiceActive) {
-                        startWaitingName();
-                    }
-                });
-            } finally {
-                AppState.isProcessing = false;
-                if (AppState.voiceActive) {
-                    document.getElementById('modeStatus').textContent = 'Ожидание активации';
-                } else {
-                    document.getElementById('modeStatus').textContent = 'Ожидание';
+            visualizer.innerHTML = html;
+        }
+
+        // ============================================
+        // ЗАЩИТА ОТ ЗАСЫПАНИЯ (WAKE LOCK)
+        // ============================================
+        async function enableWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    SystemState.wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wakeLockStatus').classList.add('active');
+                    logToTerminal('✓ Wake Lock активирован', 'system');
+                    
+                    // Восстановление при возврате на вкладку
+                    document.addEventListener('visibilitychange', async () => {
+                        if (document.visibilityState === 'visible' && SystemState.voiceEnabled) {
+                            try {
+                                SystemState.wakeLock = await navigator.wakeLock.request('screen');
+                                document.getElementById('wakeLockStatus').classList.add('active');
+                                
+                                // Восстанавливаем распознавание
+                                if (SystemState.speechRecognition && !SystemState.isProcessing) {
+                                    setTimeout(() => {
+                                        if (SystemState.voiceEnabled) {
+                                            SystemState.speechRecognition.start();
+                                            logToTerminal('Распознавание восстановлено', 'system');
+                                        }
+                                    }, 500);
+                                }
+                            } catch (err) {
+                                console.log('Wake Lock восстановление не удалось:', err);
+                            }
+                        } else if (document.visibilityState === 'hidden' && SystemState.wakeLock) {
+                            document.getElementById('wakeLockStatus').classList.remove('active');
+                        }
+                    });
+                    
+                } catch (err) {
+                    logToTerminal('Wake Lock не поддерживается', 'system');
                 }
             }
         }
@@ -1052,275 +1673,465 @@
         // ============================================
         // ESP32 УПРАВЛЕНИЕ
         // ============================================
-        async function sendToESP32(command) {
-            if (!AppState.espIp) return;
-            
-            try {
-                const img = new Image();
-                img.src = `http://${AppState.espIp}/command?cmd=${encodeURIComponent(command)}&_=${Date.now()}`;
-                
-                addSystemMessage(`⚡ Команда отправлена: ${command}`);
-                
-                if (command === 'LED_ON') {
-                    document.getElementById('ledStatus').textContent = 'Включен';
-                    document.getElementById('ledStatus').className = 'status-value active';
-                } else if (command === 'LED_OFF') {
-                    document.getElementById('ledStatus').textContent = 'Выключен';
-                    document.getElementById('ledStatus').className = 'status-value inactive';
-                }
-                
-            } catch (error) {
-                console.error('ESP32 error:', error);
-            }
-        }
-
         async function testESP32Connection() {
-            if (!AppState.espIp) {
-                showNotification('Введите IP адрес ESP32', 'warning');
-                return;
-            }
+            if (!SystemState.espIp) return false;
             
             try {
-                document.getElementById('espStatus').textContent = 'Проверка...';
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
                 
-                const img = new Image();
-                img.src = `http://${AppState.espIp}/?t=${Date.now()}`;
+                // Используем fetch с mode 'no-cors' для проверки доступности
+                const response = await fetch(`http://${SystemState.espIp}/`, {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    signal: controller.signal
+                }).catch(() => null);
                 
-                img.onload = () => {
-                    document.getElementById('espStatus').textContent = 'Подключен';
-                    document.getElementById('espStatus').className = 'status-value active';
-                    showNotification('ESP32 подключен', 'success');
-                };
+                clearTimeout(timeoutId);
                 
-                img.onerror = () => {
-                    document.getElementById('espStatus').textContent = 'Не подключен';
-                    document.getElementById('espStatus').className = 'status-value inactive';
-                    showNotification('ESP32 не отвечает', 'error');
-                };
+                SystemState.lastESP32Ping = Date.now();
+                const pingIndicator = document.getElementById('espConnectionIndicator');
+                const pingText = document.getElementById('espConnectionText');
+                const lastPingText = document.getElementById('lastPingText');
+                
+                // Если запрос не выбросил исключение, считаем что устройство доступно
+                pingIndicator.className = 'status-indicator online';
+                pingText.textContent = SystemState.translations[SystemState.language].espStatusConnected;
+                lastPingText.textContent = `${Date.now() - SystemState.lastESP32Ping}мс`;
+                return true;
                 
             } catch (error) {
-                console.error('ESP32 test error:', error);
+                console.error('Ошибка подключения к ESP32:', error);
+                const pingIndicator = document.getElementById('espConnectionIndicator');
+                const pingText = document.getElementById('espConnectionText');
+                pingIndicator.className = 'status-indicator offline';
+                pingText.textContent = SystemState.translations[SystemState.language].espStatusDisconnected;
+                return false;
+            }
+        }
+
+        function startConnectionMonitor() {
+            if (SystemState.connectionMonitor) {
+                clearInterval(SystemState.connectionMonitor);
+            }
+            
+            if (SystemState.espIp) {
+                SystemState.connectionMonitor = setInterval(() => {
+                    testESP32Connection();
+                }, 10000);
             }
         }
 
         // ============================================
-        // УПРАВЛЕНИЕ НАСТРОЙКАМИ
+        // ОСНОВНЫЕ ФУНКЦИИ УПРАВЛЕНИЯ
         // ============================================
-        function saveSettings() {
+        async function initializeSystem() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const espIp = document.getElementById('espIp').value.trim();
             
             if (!apiKey) {
-                showNotification('Введите API ключ', 'error');
+                logToTerminal('Введите API ключ OpenRouter', 'error');
                 return;
             }
             
-            AppState.apiKey = apiKey;
-            AppState.espIp = espIp;
+            // Сохраняем настройки
+            SystemState.apiKey = apiKey;
+            SystemState.espIp = espIp;
             
-            localStorage.setItem('pixel_ai_api_key', apiKey);
-            localStorage.setItem('pixel_ai_model', AppState.selectedModel);
-            localStorage.setItem('pixel_ai_esp_ip', espIp);
-            localStorage.setItem('pixel_ai_lang', AppState.currentLang);
+            // Блокируем кнопку
+            const initBtn = document.getElementById('initBtn');
+            initBtn.disabled = true;
+            initBtn.innerHTML = '<span>⚡</span><span>ПРОВЕРКА...</span>';
             
-            document.getElementById('micBtn').disabled = false;
-            document.getElementById('testESP32').disabled = !espIp;
-            document.getElementById('aiStatus').textContent = 'Активно';
-            document.getElementById('aiStatus').className = 'status-value active';
+            logToTerminal('Инициализация системы...', 'system');
             
-            showNotification('Настройки сохранены', 'success');
-            addSystemMessage('✅ Система готова к работе');
+            try {
+                // Проверка API ключа
+                const testResponse = await fetch('https://openrouter.ai/api/v1/auth/key', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                
+                if (!testResponse.ok) {
+                    throw new Error('Неверный API ключ');
+                }
+                
+                logToTerminal('✓ API ключ проверен', 'system');
+                
+                // Инициализация распознавания речи
+                if (!initSpeechRecognition()) {
+                    throw new Error('Ошибка распознавания речи');
+                }
+                
+                // Включаем Wake Lock
+                await enableWakeLock();
+                
+                // Тестируем ESP32
+                if (espIp) {
+                    await testESP32Connection();
+                    startConnectionMonitor();
+                }
+                
+                // Активируем систему
+                SystemState.systemActive = true;
+                document.getElementById('testBtn').disabled = false;
+                
+                updateStatusDisplay();
+                updateVoiceStatus('waiting');
+                
+                logToTerminal('✓ Система инициализирована', 'system');
+                logToTerminal('Активационные фразы: "пиксель" или "pixel"', 'system');
+                logToTerminal(`Режим: ${SystemState.mode.toUpperCase()}`, 'system');
+                logToTerminal(`Язык: ${SystemState.language.toUpperCase()}`, 'system');
+                
+                // Запускаем визуализатор
+                if (SystemState.visualizerInterval) {
+                    clearInterval(SystemState.visualizerInterval);
+                }
+                SystemState.visualizerInterval = setInterval(updateVisualizer, 100);
+                
+            } catch (error) {
+                logToTerminal(`Ошибка инициализации: ${error.message}`, 'error');
+                initBtn.disabled = false;
+                initBtn.innerHTML = '<span>⚡</span><span id="initText">ИНИЦИАЛИЗИРОВАТЬ</span>';
+            }
+        }
+
+        async function toggleVoiceControl() {
+            if (!SystemState.systemActive) {
+                logToTerminal('Сначала инициализируйте систему', 'error');
+                return;
+            }
+            
+            const voiceToggleBtn = document.getElementById('voiceToggleBtn');
+            const t = SystemState.translations[SystemState.language];
+            
+            if (!SystemState.voiceEnabled) {
+                // Запрашиваем разрешение на микрофон (только один раз)
+                const hasPermission = await requestMicrophonePermission();
+                if (!hasPermission) {
+                    logToTerminal(t.microphoneTestFail, 'error');
+                    return;
+                }
+                
+                // Включаем голосовое управление
+                SystemState.voiceEnabled = true;
+                voiceToggleBtn.innerHTML = '<span>🔇</span><span id="voiceToggleText">' + t.voiceToggleOffText + '</span>';
+                logToTerminal(t.voiceControlEnabled, 'system');
+                
+                // Запускаем распознавание
+                if (SystemState.speechRecognition) {
+                    SystemState.speechRecognition.start();
+                }
+                
+                SystemState.retryCount = 0;
+                
+            } else {
+                // Выключаем голосовое управление
+                SystemState.voiceEnabled = false;
+                voiceToggleBtn.innerHTML = '<span>🎤</span><span id="voiceToggleText">' + t.voiceToggleText + '</span>';
+                logToTerminal(t.voiceControlDisabled, 'system');
+                
+                // Останавливаем распознавание
+                if (SystemState.speechRecognition) {
+                    SystemState.speechRecognition.stop();
+                }
+                
+                // Останавливаем речь
+                if (SystemState.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                
+                // Очищаем визуализатор
+                document.getElementById('voiceVisualizer').innerHTML = '';
+                
+                // Сбрасываем состояния
+                SystemState.listeningForActivation = false;
+                SystemState.listeningForCommand = false;
+            }
+            
+            updateStatusDisplay();
+            updateVoiceStatus(SystemState.voiceEnabled ? 'waiting' : 'disabled');
+        }
+
+        async function testConnections() {
+            if (!SystemState.systemActive) {
+                logToTerminal('Система не инициализирована', 'error');
+                return;
+            }
+            
+            const t = SystemState.translations[SystemState.language];
+            logToTerminal(t.systemTestStarted, 'system');
+            
+            // Тест AI
+            try {
+                await fetch('https://openrouter.ai/api/v1/auth/key', {
+                    headers: { 'Authorization': `Bearer ${SystemState.apiKey}` }
+                });
+                logToTerminal('✓ AI соединение: OK', 'system');
+            } catch {
+                logToTerminal('✗ AI соединение: ОШИБКА', 'error');
+            }
+            
+            // Тест ESP32
+            if (SystemState.espIp) {
+                const espConnected = await testESP32Connection();
+                logToTerminal(espConnected ? '✓ ESP32: OK' : '✗ ESP32: ОШИБКА', espConnected ? 'system' : 'error');
+            }
+            
+            logToTerminal(t.systemTestComplete, 'system');
+        }
+
+        async function testMicrophone() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                logToTerminal('Микрофон не поддерживается', 'error');
+                return;
+            }
+            
+            const t = SystemState.translations[SystemState.language];
+            logToTerminal('Тестирование микрофона...', 'system');
+            
+            try {
+                // Используем существующий поток или запрашиваем новый
+                if (!SystemState.microphoneStream) {
+                    SystemState.microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: true 
+                    });
+                }
+                
+                logToTerminal(t.microphoneTestSuccess, 'system');
+                
+                // Освобождаем поток после теста (если голосовое управление не активно)
+                if (!SystemState.voiceEnabled) {
+                    setTimeout(() => {
+                        SystemState.microphoneStream.getTracks().forEach(track => track.stop());
+                        SystemState.microphoneStream = null;
+                        SystemState.microphoneGranted = false;
+                    }, 1000);
+                }
+                
+            } catch (error) {
+                logToTerminal(t.microphoneTestFail, 'error');
+            }
         }
 
         function resetSystem() {
-            if (confirm('Вы уверены, что хотите сбросить систему?')) {
-                localStorage.clear();
-                location.reload();
+            // Останавливаем все процессы
+            if (SystemState.speechRecognition) {
+                SystemState.speechRecognition.stop();
             }
+            
+            if (SystemState.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            
+            if (SystemState.visualizerInterval) {
+                clearInterval(SystemState.visualizerInterval);
+                SystemState.visualizerInterval = null;
+            }
+            
+            if (SystemState.connectionMonitor) {
+                clearInterval(SystemState.connectionMonitor);
+                SystemState.connectionMonitor = null;
+            }
+            
+            if (SystemState.wakeLock) {
+                SystemState.wakeLock.release();
+                SystemState.wakeLock = null;
+                document.getElementById('wakeLockStatus').classList.remove('active');
+            }
+            
+            // Освобождаем микрофон
+            if (SystemState.microphoneStream) {
+                SystemState.microphoneStream.getTracks().forEach(track => track.stop());
+                SystemState.microphoneStream = null;
+            }
+            
+            // Сбрасываем состояние
+            SystemState.systemActive = false;
+            SystemState.voiceEnabled = false;
+            SystemState.listeningForActivation = false;
+            SystemState.listeningForCommand = false;
+            SystemState.isProcessing = false;
+            SystemState.isSpeaking = false;
+            SystemState.microphoneGranted = false;
+            SystemState.retryCount = 0;
+            
+            // Сбрасываем UI
+            updateStatusDisplay();
+            updateVoiceStatus('disabled');
+            
+            const t = SystemState.translations[SystemState.language];
+            
+            document.getElementById('initBtn').disabled = false;
+            document.getElementById('initBtn').innerHTML = '<span>⚡</span><span id="initText">' + t.initText + '</span>';
+            document.getElementById('testBtn').disabled = true;
+            
+            const voiceToggleBtn = document.getElementById('voiceToggleBtn');
+            voiceToggleBtn.innerHTML = '<span>🎤</span><span id="voiceToggleText">' + t.voiceToggleText + '</span>';
+            
+            document.getElementById('voiceVisualizer').innerHTML = '';
+            
+            logToTerminal(t.systemReset, 'system');
+        }
+
+        function clearTerminal() {
+            const terminal = document.getElementById('terminal');
+            terminal.innerHTML = '';
+            SystemState.logEntries = 0;
+            updateMemoryStatus();
+            
+            const t = SystemState.translations[SystemState.language];
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('ru-RU', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            terminal.innerHTML = `
+                <div class="message system">
+                    ${t.welcomeMessage}
+                    <span class="message-timestamp">${timestamp}</span>
+                </div>
+            `;
+        }
+
+        function clearTextInput() {
+            document.getElementById('textInput').value = '';
+        }
+
+        function exportLogs() {
+            const messages = document.querySelectorAll('.message');
+            let logContent = `Neural Terminal Logs\nGenerated: ${new Date().toLocaleString()}\nLanguage: ${SystemState.language}\n\n`;
+            
+            messages.forEach(msg => {
+                const text = msg.textContent.replace(/\s+/g, ' ').trim();
+                const type = msg.classList.contains('system') ? '[SYSTEM]' :
+                             msg.classList.contains('ai') ? '[AI]' :
+                             msg.classList.contains('user') ? '[USER]' : '[ERROR]';
+                logContent += `${type} ${text}\n`;
+            });
+            
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `neural-terminal-logs-${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            logToTerminal('Логи экспортированы', 'system');
         }
 
         // ============================================
-        // ВОССТАНОВЛЕНИЕ ИЗ ФОНА (ТОЧНО КАК В ВАШЕМ КОДЕ)
+        // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
         // ============================================
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && AppState.active) {
-                console.log('Восстановление из фонового режима...');
-                
-                if (AppState.wakeLock) {
-                    AppState.wakeLock.release().then(() => {
-                        if (AppState.voiceActive) {
-                            navigator.wakeLock.request('screen').then(wakeLock => {
-                                AppState.wakeLock = wakeLock;
-                            });
-                        }
-                    });
-                }
-                
-                if (AppState.voiceActive) {
-                    if (AppState.currentMode === 'WAIT_NAME') {
-                        startWaitingName();
-                    } else if (AppState.currentMode === 'WAIT_CMD') {
-                        listenCommand();
-                    }
-                }
-            }
-        });
-
-        // ============================================
-        // ОБРАБОТЧИКИ СОБЫТИЙ
-        // ============================================
-        function setupEventListeners() {
-            // Выбор языка
-            document.querySelectorAll('.lang-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const lang = btn.dataset.lang;
-                    
-                    document.querySelectorAll('.lang-btn').forEach(b => {
-                        b.classList.remove('active');
-                    });
-                    btn.classList.add('active');
-                    
-                    AppState.currentLang = lang;
-                    updateLanguageStatus();
-                    
-                    if (AppState.speechRecognition) {
-                        AppState.speechRecognition.lang = lang === 'ru' ? 'ru-RU' : 'en-US';
-                    }
-                    
-                    showNotification(`Язык изменен на ${lang.toUpperCase()}`, 'success');
-                });
+        document.addEventListener('DOMContentLoaded', () => {
+            // Загружаем сохраненные настройки
+            const savedApiKey = localStorage.getItem('neural_api_key');
+            const savedEspIp = localStorage.getItem('neural_esp_ip');
+            const savedLanguage = localStorage.getItem('neural_language') || 'ru';
+            const savedMode = localStorage.getItem('neural_mode') || 'voice';
+            
+            if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
+            if (savedEspIp) document.getElementById('espIp').value = savedEspIp;
+            
+            // Устанавливаем язык и режим
+            setLanguage(savedLanguage);
+            setMode(savedMode);
+            
+            // Автосохранение настроек
+            document.getElementById('apiKey').addEventListener('input', (e) => {
+                localStorage.setItem('neural_api_key', e.target.value);
             });
             
-            // Выбор модели AI
-            document.querySelectorAll('.model-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    document.querySelectorAll('.model-card').forEach(c => {
-                        c.classList.remove('active');
-                    });
-                    card.classList.add('active');
-                    AppState.selectedModel = card.dataset.model;
-                    
-                    localStorage.setItem('pixel_ai_model', card.dataset.model);
-                    showNotification(`Модель изменена: ${card.querySelector('.model-name').textContent}`, 'success');
-                });
+            document.getElementById('espIp').addEventListener('input', (e) => {
+                localStorage.setItem('neural_esp_ip', e.target.value);
             });
             
-            // Кнопка сохранения настроек
-            document.getElementById('saveSettings').addEventListener('click', saveSettings);
-            
-            // Кнопка микрофона
-            document.getElementById('micBtn').addEventListener('click', toggleVoiceControl);
-            
-            // Кнопка тестирования ESP32
-            document.getElementById('testESP32').addEventListener('click', testESP32Connection);
-            
-            // Кнопка сброса системы
-            document.getElementById('resetSystem').addEventListener('click', resetSystem);
-            
-            // Отправка сообщения
-            document.getElementById('sendBtn').addEventListener('click', () => {
-                const message = document.getElementById('chatInput').value.trim();
-                if (message) {
-                    addUserMessage(message);
-                    processAI(message);
-                    document.getElementById('chatInput').value = '';
-                }
+            // Сохранение языка и режима
+            document.getElementById('langRu').addEventListener('click', () => {
+                localStorage.setItem('neural_language', 'ru');
             });
             
-            document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            document.getElementById('langEn').addEventListener('click', () => {
+                localStorage.setItem('neural_language', 'en');
+            });
+            
+            document.getElementById('modeVoice').addEventListener('click', () => {
+                localStorage.setItem('neural_mode', 'voice');
+            });
+            
+            document.getElementById('modeTextBtn').addEventListener('click', () => {
+                localStorage.setItem('neural_mode', 'text');
+            });
+            
+            document.getElementById('modeHybrid').addEventListener('click', () => {
+                localStorage.setItem('neural_mode', 'hybrid');
+            });
+            
+            // Быстрая отправка по Enter
+            document.getElementById('textInput').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    document.getElementById('sendBtn').click();
+                    sendTextRequest();
                 }
             });
             
-            // Автосохранение
-            document.getElementById('apiKey').addEventListener('change', function() {
-                localStorage.setItem('pixel_ai_api_key', this.value);
+            document.getElementById('apiKey').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') initializeSystem();
             });
             
-            document.getElementById('espIp').addEventListener('change', function() {
-                localStorage.setItem('pixel_ai_esp_ip', this.value);
-                document.getElementById('testESP32').disabled = !this.value.trim();
-            });
-        }
-
-        function updateLanguageStatus() {
-            document.getElementById('langStatus').textContent = AppState.currentLang.toUpperCase();
-        }
-
-        // ============================================
-        // УВЕДОМЛЕНИЯ
-        // ============================================
-        function showNotification(message, type = 'info') {
-            const container = document.getElementById('notificationContainer');
-            const notification = document.createElement('div');
+            // Обновление времени
+            function updateTime() {
+                const now = new Date();
+                document.getElementById('currentTime').textContent = now.toLocaleTimeString('ru-RU', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+            setInterval(updateTime, 1000);
+            updateTime();
             
-            notification.className = `notification ${type}`;
-            notification.innerHTML = message;
-            
-            container.appendChild(notification);
-            
-            setTimeout(() => notification.classList.add('show'), 10);
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
-        }
-
-        // ============================================
-        // API ЗАПРОС ДЛЯ VERCEL
-        // ============================================
-        if (typeof window !== 'undefined') {
-            const originalFetch = window.fetch;
-            window.fetch = async function(url, options) {
-                if (url === '/api/chat' && options.method === 'POST') {
-                    try {
-                        const body = JSON.parse(options.body);
-                        
-                        const response = await originalFetch('https://openrouter.ai/api/v1/chat/completions', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${body.userKey}`,
-                                'Content-Type': 'application/json',
-                                'HTTP-Referer': window.location.origin,
-                                'X-Title': 'Pixel AI'
-                            },
-                            body: JSON.stringify({
-                                model: body.model,
-                                messages: [
-                                    {
-                                        role: 'system',
-                                        content: body.lang === 'ru' 
-                                            ? 'Ты робот Пиксель. Отвечай кратко (1-2 фразы). Если просят включить/выключить свет, используй команды LED_ON или LED_OFF. Формат ответа строго: Text: [фраза для озвучки] Commands: [команда или null]'
-                                            : 'You are Pixel robot. Answer briefly (1-2 phrases). If asked to turn on/off light, use commands LED_ON or LED_OFF. Response format strictly: Text: [speech phrase] Commands: [command or null]'
-                                    },
-                                    { role: 'user', content: body.prompt }
-                                ]
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`API Error ${response.status}`);
-                        }
-                        
-                        const data = await response.json();
-                        return {
-                            ok: true,
-                            json: () => Promise.resolve(data)
-                        };
-                        
-                    } catch (error) {
-                        return {
-                            ok: false,
-                            json: () => Promise.resolve({ error: error.message })
-                        };
+            // Восстановление при возврате на вкладку
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && SystemState.systemActive) {
+                    logToTerminal('Сессия восстановлена', 'system');
+                    
+                    // Проверяем ESP32 соединение
+                    if (SystemState.espIp) {
+                        testESP32Connection();
+                    }
+                    
+                    // Восстанавливаем голосовое управление если оно было активно
+                    if (SystemState.voiceEnabled && SystemState.speechRecognition && !SystemState.isProcessing) {
+                        setTimeout(() => {
+                            if (SystemState.voiceEnabled) {
+                                SystemState.speechRecognition.start();
+                                logToTerminal('Распознавание восстановлено', 'system');
+                            }
+                        }, 500);
                     }
                 }
-                return originalFetch.apply(this, arguments);
-            };
-        }
+            });
+            
+            // Предотвращаем закрытие страницы при активной системе
+            window.addEventListener('beforeunload', (e) => {
+                if (SystemState.voiceEnabled) {
+                    e.preventDefault();
+                    e.returnValue = SystemState.language === 'ru' 
+                        ? 'Голосовое управление активно. Вы уверены, что хотите покинуть страницу?' 
+                        : 'Voice control is active. Are you sure you want to leave the page?';
+                    return e.returnValue;
+                }
+            });
+            
+            logToTerminal('Neural Terminal v3.2 загружен', 'system');
+            logToTerminal('Получите API ключ на сайте: https://openrouter.ai', 'system');
+        });
     </script>
 </body>
 </html>
