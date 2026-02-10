@@ -15,6 +15,8 @@
         .ai { color: #fff; border-left: 2px solid var(--neon); padding-left: 10px; margin: 5px 0; }
         .user { color: #ff00e5; }
         .cmd { color: #00ff9d; font-weight: bold; }
+        .esp-connected { color: #00ff9d; }
+        .esp-disconnected { color: #ff4757; }
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
     </style>
@@ -22,7 +24,7 @@
 <body>
 
 <div style="padding: 10px; font-size: 12px; background: #111;">
-    STATUS: <span id="st">READY</span> | CORE: TRINITY <span class="blink">_</span>
+    STATUS: <span id="st">READY</span> | ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | CORE: TRINITY <span class="blink">_</span>
 </div>
 
 <div id="terminal"></div>
@@ -36,7 +38,14 @@
 <script>
     const term = document.getElementById('terminal');
     const st = document.getElementById('st');
-    let config = { key: '', ip: '', active: false };
+    const espStatus = document.getElementById('espStatus');
+    let config = { 
+        key: '', 
+        ip: '', 
+        active: false,
+        espConnected: false,
+        espPermissionGranted: false
+    };
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
@@ -61,6 +70,115 @@
         
         log("Инициализация Trinity через OpenRouter...", "sys");
         speak("Система активирована. Жду команды.", startWaitingForName);
+        
+        // Показываем кнопку подключения к ESP32
+        showESPConnectButton();
+    }
+
+    function showESPConnectButton() {
+        const espControls = document.createElement('div');
+        espControls.className = 'controls';
+        espControls.innerHTML = `
+            <button onclick="connectToESP32()" id="espConnectBtn">
+                🔌 ПОДКЛЮЧИТЬСЯ К ESP32
+            </button>
+            <div id="espControls" style="display:none; margin-top: 10px;">
+                <button onclick="testESP32Connection()">🔧 ТЕСТ ПОДКЛЮЧЕНИЯ</button>
+                <button onclick="sendESP32Command('LED_ON')">💡 LED ON</button>
+                <button onclick="sendESP32Command('LED_OFF')">💡 LED OFF</button>
+            </div>
+        `;
+        document.body.appendChild(espControls);
+    }
+
+    async function connectToESP32() {
+        if(!config.ip) {
+            alert("Сначала введите IP адрес ESP32 в поле выше!");
+            return;
+        }
+        
+        log("Запрашиваю разрешение на подключение к ESP32...", "sys");
+        
+        try {
+            // Пробуем подключиться к ESP32 для проверки доступности
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const response = await fetch(`http://${config.ip}/`, {
+                method: 'GET',
+                mode: 'no-cors',
+                signal: controller.signal
+            }).catch(() => null);
+            
+            clearTimeout(timeoutId);
+            
+            // Разрешение считается полученным, если ESP32 доступен
+            config.espPermissionGranted = true;
+            config.espConnected = true;
+            
+            espStatus.textContent = "CONNECTED";
+            espStatus.className = "esp-connected";
+            
+            const espConnectBtn = document.getElementById('espConnectBtn');
+            espConnectBtn.innerHTML = "✅ ESP32 ПОДКЛЮЧЕН";
+            espConnectBtn.style.background = "#00ff9d";
+            espConnectBtn.disabled = true;
+            
+            document.getElementById('espControls').style.display = 'block';
+            
+            log("✅ Успешно подключено к ESP32!", "sys");
+            log("Теперь команды будут автоматически отправляться на робота.", "sys");
+            speak("Подключение к роботу установлено. Готов к работе.");
+            
+        } catch (error) {
+            log("❌ Не удалось подключиться к ESP32", "sys");
+            log("Проверьте: 1) ESP32 включен 2) Правильный IP 3) ESP32 в той же сети", "sys");
+            speak("Не удалось подключиться к роботу. Проверьте соединение.");
+        }
+    }
+
+    async function testESP32Connection() {
+        if(!config.espConnected) return;
+        
+        log("Тестирую подключение к ESP32...", "sys");
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            
+            await fetch(`http://${config.ip}/ping`, {
+                method: 'GET',
+                mode: 'no-cors',
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            log("✅ ESP32 отвечает на запросы", "sys");
+            
+        } catch (error) {
+            log("❌ ESP32 не отвечает", "sys");
+            config.espConnected = false;
+            espStatus.textContent = "DISCONNECTED";
+            espStatus.className = "esp-disconnected";
+        }
+    }
+
+    function sendESP32Command(command) {
+        if(!config.espConnected || !config.espPermissionGranted) {
+            log("❌ Нет подключения к ESP32", "sys");
+            return;
+        }
+        
+        // Отправляем команду на ESP32
+        fetch(`http://${config.ip}/command`, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: command
+        }).catch(error => {
+            console.error("Ошибка отправки команды:", error);
+        });
+        
+        log(`📤 Команда отправлена на ESP32: ${command}`, "sys");
     }
 
     // Этап 1: Ожидание активационного имени "Пиксель"
@@ -191,9 +309,12 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
                 const commands = cmds.split(',').filter(cmd => cmd.trim() !== '');
                 commands.forEach(cmd => {
                     log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, "sys");
-                    if(config.ip) {
-                        // Отправляем команду на ESP32
-                        sendToESP32(cmd.trim());
+                    
+                    // Отправляем команду на ESP32 если подключено
+                    if(config.espConnected && config.espPermissionGranted) {
+                        sendESP32Command(cmd.trim());
+                    } else {
+                        log(`(ESP32 не подключен - команда не отправлена)`, "sys");
                     }
                 });
             }
@@ -205,24 +326,6 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
             log("ОШИБКА: " + e.message, "sys");
             speak("Произошла ошибка при обработке запроса", startWaitingForName);
         }
-    }
-
-    function sendToESP32(command) {
-        if(!config.ip) {
-            log("IP ESP32 не указан", "sys");
-            return;
-        }
-        
-        // Отправляем команду на ESP32
-        fetch(`http://${config.ip}/command`, { 
-            method: "POST", 
-            mode: "no-cors", 
-            body: command 
-        }).catch(err => {
-            log(`Ошибка отправки команды: ${err.message}`, "sys");
-        });
-        
-        log(`Команда [${command}] отправлена на ESP32`, "sys");
     }
 
     function speak(text, callback) {
