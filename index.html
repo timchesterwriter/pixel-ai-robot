@@ -1,140 +1,409 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PIXEL AI: Trinity Edition</title>
-
-<style>
-:root { --neon:#ffaa00; --bg:#0a0a0a; }
-body { margin:0; background:var(--bg); color:var(--neon); font-family:monospace; height:100vh; display:flex; flex-direction:column; }
-#terminal { flex:1; padding:20px; overflow-y:auto; border-bottom:1px solid #222; }
-.controls { padding:20px; background:#111; display:flex; flex-direction:column; gap:10px; }
-input,button { padding:12px; font-size:16px; }
-button { background:var(--neon); border:none; font-weight:bold; }
-.sys { color:#00d2ff }
-.ai { color:#fff }
-.cmd { color:#00ff9d }
-.esp-connected { color:#00ff9d }
-.esp-disconnected { color:#ff4757 }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIXEL AI: Robot Control</title>
+    <style>
+        :root { --neon: #ffaa00; --bg: #0a0a0a; }
+        body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
+        #terminal { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #222; }
+        .controls { padding: 20px; background: #111; display: flex; flex-direction: column; gap: 10px; }
+        input { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
+        button { padding: 15px; background: var(--neon); border: none; font-weight: bold; border-radius: 5px; cursor: pointer; color: #000; }
+        .sys { color: #00d2ff; }
+        .ai { color: #fff; border-left: 2px solid var(--neon); padding-left: 10px; margin: 5px 0; }
+        .user { color: #ff00e5; }
+        .cmd { color: #00ff9d; font-weight: bold; }
+        .esp-connected { color: #00ff9d; }
+        .esp-disconnected { color: #ff4757; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
 </head>
-
 <body>
 
-<div style="padding:10px;background:#111">
-STATUS: <span id="st">READY</span> |
-ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span>
+<div style="padding: 10px; font-size: 12px; background: #111;">
+    STATUS: <span id="st">READY</span> | ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | CORE: TRINITY <span class="blink">_</span>
 </div>
 
 <div id="terminal"></div>
 
 <div class="controls" id="setup">
-<input id="key" placeholder="OpenRouter API Key">
-<input id="ip" placeholder="IP ESP32">
-<button onclick="boot()">ЗАПУСТИТЬ</button>
+    <input type="password" id="key" placeholder="OpenRouter API Key (sk-or-...)">
+    <input type="text" id="ip" placeholder="ESP32 IP Address (e.g., 192.168.1.100)">
+    <button onclick="initializeSystem()">ЗАПУСТИТЬ СИСТЕМУ</button>
 </div>
 
 <script>
-const term = document.getElementById("terminal");
-const st = document.getElementById("st");
-const espStatus = document.getElementById("espStatus");
+    const term = document.getElementById('terminal');
+    const st = document.getElementById('st');
+    const espStatus = document.getElementById('espStatus');
+    
+    let config = { 
+        key: '', 
+        ip: '', 
+        active: false,
+        espConnected: false,
+        espPermissionGranted: false
+    };
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ru-RU';
+    recognition.continuous = false;
 
-let config = {
-  key:"",
-  ip:"",
-  active:false,
-  espConnected:false,
-  espPermission:false
-};
+    function log(msg, cl = '') {
+        const d = document.createElement('div');
+        if(cl) d.className = cl;
+        d.innerHTML = `> ${msg}`;
+        term.appendChild(d);
+        term.scrollTop = term.scrollHeight;
+    }
 
-function log(msg, cls="") {
-  const d = document.createElement("div");
-  d.className = cls;
-  d.innerHTML = "> " + msg;
-  term.appendChild(d);
-  term.scrollTop = term.scrollHeight;
-}
+    async function initializeSystem() {
+        config.key = document.getElementById('key').value.trim();
+        config.ip = document.getElementById('ip').value.trim();
+        
+        if(!config.key) {
+            alert("Введите API ключ OpenRouter!");
+            return;
+        }
+        
+        if(!config.ip) {
+            alert("Введите IP адрес ESP32!");
+            return;
+        }
+        
+        log("Инициализация системы...", "sys");
+        st.innerText = "INITIALIZING";
+        st.style.color = "#ffaa00";
+        
+        // Проверяем подключение к ESP32
+        const espConnected = await testESP32Connection();
+        
+        if(!espConnected) {
+            log("❌ Не удалось подключиться к ESP32", "sys");
+            log("Проверьте: 1) ESP32 включен 2) Правильный IP 3) Устройства в одной сети", "sys");
+            st.innerText = "ERROR";
+            st.style.color = "#ff4757";
+            return;
+        }
+        
+        // Прячем панель настройки
+        document.getElementById('setup').style.display = 'none';
+        config.active = true;
+        config.espConnected = true;
+        
+        // Показываем панель управления
+        showControlPanel();
+        
+        log("✅ Система инициализирована", "sys");
+        log(`ESP32 подключен: ${config.ip}`, "sys");
+        log("Модель: Trinity", "sys");
+        st.innerText = "READY";
+        st.style.color = "#00ff9d";
+        espStatus.textContent = "CONNECTED";
+        espStatus.className = "esp-connected";
+        
+        speak("Система активирована. Жду команды.", startWaitingForName);
+    }
 
-function boot() {
-  config.key = key.value.trim();
-  config.ip = ip.value.trim();
-  if (!config.key) return alert("Нет API ключа");
+    async function testESP32Connection() {
+        log("Проверка подключения к ESP32...", "sys");
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const response = await fetch(`http://${config.ip}/ping`, {
+                method: 'GET',
+                mode: 'no-cors',
+                signal: controller.signal
+            }).catch(() => null);
+            
+            clearTimeout(timeoutId);
+            
+            log("✅ ESP32 доступен", "sys");
+            return true;
+            
+        } catch (error) {
+            log("❌ ESP32 не отвечает", "sys");
+            return false;
+        }
+    }
 
-  if (!confirm("Разрешить сайту управлять ESP32 в вашей сети?")) {
-    log("❌ Пользователь запретил управление", "sys");
-    return;
-  }
+    function sendESP32Command(command) {
+        if(!config.espConnected) {
+            log("❌ Нет подключения к ESP32", "sys");
+            return;
+        }
+        
+        log(`📤 Отправляю команду на ESP32: ${command}`, "sys");
+        
+        // Отправляем команду на ESP32
+        fetch(`http://${config.ip}/command`, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: command
+        }).catch(error => {
+            console.error("Ошибка отправки команды:", error);
+            log(`❌ Ошибка отправки команды: ${error.message}`, "sys");
+        });
+    }
 
-  config.espPermission = true;
-  localStorage.setItem("espPermission","true");
+    function showControlPanel() {
+        const controlPanel = document.createElement('div');
+        controlPanel.className = 'controls';
+        controlPanel.innerHTML = `
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="sendESP32Command('LED_ON')" style="flex: 1;">💡 LED ON</button>
+                <button onclick="sendESP32Command('LED_OFF')" style="flex: 1;">💡 LED OFF</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="sendESP32Command('MOVE_FORWARD|50|2000')" style="flex: 1;">⬆ ВПЕРЕД</button>
+                <button onclick="sendESP32Command('STOP')" style="flex: 1;">⏹ СТОП</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="sendESP32Command('ROTATE_LEFT|90|50')" style="flex: 1;">↶ ПОВОРОТ</button>
+                <button onclick="sendESP32Command('ROTATE_RIGHT|90|50')" style="flex: 1;">↷ ПОВОРОТ</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button onclick="sendESP32Command('DANCE_1')" style="flex: 1;">🕺 ТАНЕЦ 1</button>
+                <button onclick="sendESP32Command('DANCE_2')" style="flex: 1;">💃 ТАНЕЦ 2</button>
+                <button onclick="sendESP32Command('DANCE_3')" style="flex: 1;">👯 ТАНЕЦ 3</button>
+            </div>
+            <button onclick="toggleVoiceControl()" id="voiceBtn" style="background: #0094ff;">
+                <span>🎤</span>
+                <span id="voiceBtnText">ВКЛЮЧИТЬ ГОЛОС</span>
+            </button>
+        `;
+        
+        document.body.appendChild(controlPanel);
+    }
 
-  setup.style.display="none";
-  config.active = true;
+    // Этап 1: Ожидание активационного имени "Пиксель"
+    function startWaitingForName() {
+        if(!config.active) return;
+        st.innerText = "LISTENING (NAME)";
+        st.style.color = "#ffaa00";
 
-  log("Trinity активирована", "sys");
-  connectToESP32();
-}
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript.toLowerCase();
+            log(`<span class="user">Слышу: "${text}"</span>`);
+            
+            if (text.includes("пиксель") || text.includes("pixel")) {
+                handleTrigger();
+            } else {
+                safeRestart();
+            }
+        };
 
-async function connectToESP32() {
-  try {
-    const r = await fetch(`http://${config.ip}/ping`);
-    const t = await r.text();
-    if (t !== "pong") throw 0;
+        recognition.onend = () => { 
+            if(st.innerText === "LISTENING (NAME)" && config.active) {
+                safeRestart();
+            }
+        };
+        
+        recognition.onerror = (event) => {
+            if (event.error === 'not-allowed') {
+                log("Разрешите доступ к микрофону в настройках браузера", "sys");
+                toggleVoiceControl(); // Выключаем голосовое управление
+            }
+            safeRestart();
+        };
+        
+        try { 
+            recognition.start(); 
+        } catch(e) {
+            console.error("Recognition start error:", e);
+            safeRestart();
+        }
+    }
 
-    config.espConnected = true;
-    espStatus.textContent = "CONNECTED";
-    espStatus.className = "esp-connected";
-    log("ESP32 подключён", "sys");
+    // Этап 2: Реакция на имя и ожидание самой команды
+    function handleTrigger() {
+        st.innerText = "REPLYING";
+        const reply = "Слушаю тебя!";
+        log(`PIXEL: ${reply}`, "sys");
+        
+        speak(reply, () => {
+            st.innerText = "LISTENING (CMD)";
+            log("Говорите команду...", "sys");
+            
+            recognition.onresult = (event) => {
+                const cmdText = event.results[0][0].transcript;
+                log(`<span class="user">ЗАПРОС: ${cmdText}</span>`);
+                askTrinity(cmdText);
+            };
+            
+            recognition.onend = () => { 
+                if(st.innerText === "LISTENING (CMD)" && config.active) {
+                    safeRestart();
+                }
+            };
+            
+            try { 
+                recognition.start(); 
+            } catch(e) {
+                safeRestart();
+            }
+        });
+    }
 
-  } catch {
-    log("ESP32 недоступен", "sys");
-  }
-}
+    // Этап 3: Запрос к Trinity
+    async function askTrinity(prompt) {
+        st.innerText = "THINKING";
+        log("Trinity анализирует...", "sys");
 
-function sendESP32Command(cmd) {
-  if (!config.espConnected || !config.espPermission) {
-    log("⛔ Команда заблокирована", "sys");
-    return;
-  }
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${config.key}`,
+                    "HTTP-Referer": window.location.href,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    "model": "arcee-ai/trinity-large-preview:free",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай ТОЛЬКО на русском языке.
 
-  fetch(`http://${config.ip}/command?cmd=${encodeURIComponent(cmd)}`)
-    .then(()=>log(`📤 ${cmd}`, "cmd"))
-    .catch(()=>log("❌ Ошибка отправки","sys"));
-}
+Доступные команды для управления роботом:
+1. ДВИЖЕНИЕ:
+   - MOVE_FORWARD|SPEED|TIME - вперед (скорость 0-100, время в мс)
+   - MOVE_BACKWARD|SPEED|TIME - назад
+   - ROTATE_LEFT|DEGREES|SPEED - поворот налево (градусы, скорость 0-100)
+   - ROTATE_RIGHT|DEGREES|SPEED - поворот направо
+   - STOP - полная остановка
+   - TURN|DEGREES| - повернуться на градусы (использует гироскоп)
 
-/* ==== ИИ ==== */
+2. РЕЖИМЫ:
+   - REMOTECONTROL_MODE - режим дистанционного управления
+   - DANCE_1 - танец номер 1
+   - DANCE_2 - танец номер 2
+   - DANCE_3 - танец номер 3
+   - DANCE_1,2,3 - несколько танцев сразу
 
-async function askTrinity(prompt) {
-  st.textContent="THINKING";
+3. УТИЛИТЫ:
+   - LED_ON - включить светодиод на ESP32
+   - LED_OFF - выключить светодиод
+   - WAIT_5 - ждать 5 секунд (может быть любое число)
 
-  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method:"POST",
-    headers:{
-      "Authorization":`Bearer ${config.key}`,
-      "Content-Type":"application/json"
-    },
-    body:JSON.stringify({
-      model:"arcee-ai/trinity-large-preview:free",
-      messages:[
-        { role:"system", content:"Отвечай в формате Text / Commands" },
-        { role:"user", content:prompt }
-      ]
-    })
-  });
+Формат ответа строго такой:
+Text: [твой текстовый ответ на русском языке]
+Commands: [команды через запятую или null]
 
-  const data = await r.json();
-  const raw = data.choices[0].message.content;
+Пример:
+Пользователь: "Поезди вперед и поверни налево"
+Ответ: 
+Text: Еду вперед и поворачиваю налево.
+Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
 
-  const text = raw.match(/Text:\s*(.*)/i)?.[1] || raw;
-  const cmds = raw.match(/Commands:\s*(.*)/i)?.[1] || "null";
+ВНИМАНИЕ:
+1. Команды НЕ озвучиваются, только пишутся в терминал
+2. Всегда отвечай на русском
+3. Не используй смайлики в тексте
+4. Если команда не нужна - пиши Commands: null
+5. Для ожидания используй WAIT_<секунды>`
+                        },
+                        { "role": "user", "content": prompt }
+                    ],
+                    "temperature": 0.6
+                })
+            });
 
-  log("PIXEL: "+text,"ai");
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error.message);
 
-  if (cmds.toUpperCase() !== "NULL") {
-    cmds.split(",").forEach(c=>sendESP32Command(c.trim()));
-  }
-}
+            const aiRaw = data.choices[0].message.content;
+            
+            // Извлекаем текстовый ответ и команды
+            const txt = aiRaw.match(/Text:\s*(.*)/i)?.[1] || aiRaw;
+            const cmdMatch = aiRaw.match(/Commands:\s*(.*)/i);
+            let cmds = cmdMatch ? cmdMatch[1] : "null";
+            
+            // Очищаем команды от лишних пробелов
+            cmds = cmds.replace(/\s+/g, '').toUpperCase();
+            
+            // Выводим ответ ИИ
+            log(`PIXEL: ${txt}`, "ai");
+            
+            // Выводим команды отдельно (не озвучиваем!)
+            if (cmds !== "NULL" && cmds !== "") {
+                const commands = cmds.split(',').filter(cmd => cmd.trim() !== '');
+                commands.forEach(cmd => {
+                    log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, "sys");
+                    
+                    // Отправляем команду на ESP32
+                    sendESP32Command(cmd.trim());
+                });
+            }
+
+            // Озвучиваем только текстовый ответ (без команд)
+            speak(txt, startWaitingForName);
+
+        } catch (e) {
+            log("ОШИБКА: " + e.message, "sys");
+            speak("Произошла ошибка при обработке запроса", startWaitingForName);
+        }
+    }
+
+    function speak(text, callback) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'ru-RU';
+        msg.rate = 0.9;
+        msg.onend = callback;
+        window.speechSynthesis.speak(msg);
+    }
+
+    function safeRestart() {
+        if(config.active) {
+            setTimeout(() => { 
+                try { 
+                    recognition.start(); 
+                } catch(e) {
+                    console.error("Failed to restart recognition:", e);
+                } 
+            }, 100);
+        }
+    }
+
+    function toggleVoiceControl() {
+        if(!config.active) {
+            alert("Сначала инициализируйте систему!");
+            return;
+        }
+        
+        const voiceBtn = document.getElementById('voiceBtn');
+        const voiceBtnText = document.getElementById('voiceBtnText');
+        
+        if(voiceBtn.style.background === 'rgb(0, 148, 255)') {
+            // Включаем голосовое управление
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(() => {
+                    voiceBtn.style.background = '#ff4757';
+                    voiceBtnText.innerText = "ВЫКЛЮЧИТЬ ГОЛОС";
+                    startWaitingForName();
+                })
+                .catch(err => {
+                    log("❌ Не удалось получить доступ к микрофону", "sys");
+                    alert("Разрешите доступ к микрофону в настройках браузера!");
+                });
+        } else {
+            // Выключаем голосовое управление
+            voiceBtn.style.background = '#0094ff';
+            voiceBtnText.innerText = "ВКЛЮЧИТЬ ГОЛОС";
+            recognition.stop();
+            window.speechSynthesis.cancel();
+            st.innerText = "READY";
+            st.style.color = "#00ff9d";
+        }
+    }
 </script>
 </body>
 </html>
