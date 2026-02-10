@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: Robot Control</title>
+    <title>PIXEL AI: Trinity Edition</title>
     <style>
         :root { --neon: #ffaa00; --bg: #0a0a0a; }
         body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
@@ -19,6 +19,37 @@
         .esp-disconnected { color: #ff4757; }
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
+        
+        /* ESP32 Connection Panel */
+        #espPanel {
+            padding: 15px;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            display: none;
+        }
+        
+        .esp-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .esp-btn {
+            padding: 10px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: var(--neon);
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .esp-btn:hover {
+            background: #333;
+            border-color: var(--neon);
+        }
     </style>
 </head>
 <body>
@@ -29,23 +60,48 @@
 
 <div id="terminal"></div>
 
+<!-- Setup Panel -->
 <div class="controls" id="setup">
     <input type="password" id="key" placeholder="OpenRouter API Key (sk-or-...)">
-    <input type="text" id="ip" placeholder="ESP32 IP Address (e.g., 192.168.1.100)">
-    <button onclick="initializeSystem()">ЗАПУСТИТЬ СИСТЕМУ</button>
+    <input type="text" id="ip" placeholder="IP Робота (ESP32)">
+    <button onclick="boot()">ЗАПУСТИТЬ СИСТЕМУ</button>
+</div>
+
+<!-- ESP32 Control Panel -->
+<div id="espPanel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div>ESP32 CONTROLS:</div>
+        <button onclick="testESP32Connection()" style="padding: 8px 12px; font-size: 12px;">🔧 TEST</button>
+    </div>
+    
+    <div class="esp-controls">
+        <div class="esp-btn" onclick="sendESP32Command('LED_ON')">💡 ON</div>
+        <div class="esp-btn" onclick="sendESP32Command('LED_OFF')">💡 OFF</div>
+        <div class="esp-btn" onclick="sendESP32Command('MOVE_FORWARD|50|2000')">⬆ FWD</div>
+        <div class="esp-btn" onclick="sendESP32Command('STOP')">⏹ STOP</div>
+        <div class="esp-btn" onclick="sendESP32Command('MOVE_BACKWARD|30|1000')">⬇ BACK</div>
+        <div class="esp-btn" onclick="sendESP32Command('ROTATE_LEFT|90|50')">↶ LEFT</div>
+        <div class="esp-btn" onclick="sendESP32Command('ROTATE_RIGHT|90|50')">↷ RIGHT</div>
+        <div class="esp-btn" onclick="sendESP32Command('DANCE_1')">🕺 1</div>
+        <div class="esp-btn" onclick="sendESP32Command('DANCE_2')">💃 2</div>
+        <div class="esp-btn" onclick="sendESP32Command('DANCE_3')">👯 3</div>
+        <div class="esp-btn" onclick="sendESP32Command('REMOTECONTROL_MODE')">🎮 REMOTE</div>
+        <div class="esp-btn" onclick="sendESP32Command('WAIT_2')">⏱ WAIT 2s</div>
+    </div>
 </div>
 
 <script>
     const term = document.getElementById('terminal');
     const st = document.getElementById('st');
     const espStatus = document.getElementById('espStatus');
+    const espPanel = document.getElementById('espPanel');
+    const setupPanel = document.getElementById('setup');
     
     let config = { 
         key: '', 
         ip: '', 
         active: false,
-        espConnected: false,
-        espPermissionGranted: false
+        espConnected: false
     };
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -61,62 +117,33 @@
         term.scrollTop = term.scrollHeight;
     }
 
-    async function initializeSystem() {
+    async function boot() {
         config.key = document.getElementById('key').value.trim();
         config.ip = document.getElementById('ip').value.trim();
+        if(!config.key) return alert("Введите API ключ OpenRouter!");
         
-        if(!config.key) {
-            alert("Введите API ключ OpenRouter!");
-            return;
-        }
-        
-        if(!config.ip) {
-            alert("Введите IP адрес ESP32!");
-            return;
-        }
-        
-        log("Инициализация системы...", "sys");
-        st.innerText = "INITIALIZING";
-        st.style.color = "#ffaa00";
-        
-        // Проверяем подключение к ESP32
-        const espConnected = await testESP32Connection();
-        
-        if(!espConnected) {
-            log("❌ Не удалось подключиться к ESP32", "sys");
-            log("Проверьте: 1) ESP32 включен 2) Правильный IP 3) Устройства в одной сети", "sys");
-            st.innerText = "ERROR";
-            st.style.color = "#ff4757";
-            return;
-        }
-        
-        // Прячем панель настройки
-        document.getElementById('setup').style.display = 'none';
+        setupPanel.style.display = 'none';
         config.active = true;
-        config.espConnected = true;
         
-        // Показываем панель управления
-        showControlPanel();
+        log("Инициализация Trinity через OpenRouter...", "sys");
         
-        log("✅ Система инициализирована", "sys");
-        log(`ESP32 подключен: ${config.ip}`, "sys");
-        log("Модель: Trinity", "sys");
-        st.innerText = "READY";
-        st.style.color = "#00ff9d";
-        espStatus.textContent = "CONNECTED";
-        espStatus.className = "esp-connected";
+        // Проверяем подключение к ESP32 если указан IP
+        if(config.ip) {
+            await connectToESP32();
+        }
         
         speak("Система активирована. Жду команды.", startWaitingForName);
     }
 
-    async function testESP32Connection() {
-        log("Проверка подключения к ESP32...", "sys");
+    async function connectToESP32() {
+        log(`Проверяю подключение к ESP32: ${config.ip}`, "sys");
         
         try {
+            // Пробуем подключиться к ESP32
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
             
-            const response = await fetch(`http://${config.ip}/ping`, {
+            await fetch(`http://${config.ip}/ping`, {
                 method: 'GET',
                 mode: 'no-cors',
                 signal: controller.signal
@@ -124,22 +151,55 @@
             
             clearTimeout(timeoutId);
             
-            log("✅ ESP32 доступен", "sys");
-            return true;
+            config.espConnected = true;
+            espStatus.textContent = "CONNECTED";
+            espStatus.className = "esp-connected";
+            espPanel.style.display = 'block';
+            
+            log("✅ Успешно подключено к ESP32!", "sys");
+            speak("Подключение к роботу установлено.");
+            
+        } catch (error) {
+            log("❌ Не удалось подключиться к ESP32", "sys");
+            log("Команды будут выводиться только в терминал", "sys");
+            espStatus.textContent = "ERROR";
+        }
+    }
+
+    async function testESP32Connection() {
+        if(!config.ip) return;
+        
+        log("Тестирую подключение к ESP32...", "sys");
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            
+            await fetch(`http://${config.ip}/ping`, {
+                method: 'GET',
+                mode: 'no-cors',
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            log("✅ ESP32 отвечает на запросы", "sys");
+            espStatus.textContent = "CONNECTED";
+            espStatus.className = "esp-connected";
+            config.espConnected = true;
             
         } catch (error) {
             log("❌ ESP32 не отвечает", "sys");
-            return false;
+            espStatus.textContent = "DISCONNECTED";
+            espStatus.className = "esp-disconnected";
+            config.espConnected = false;
         }
     }
 
     function sendESP32Command(command) {
-        if(!config.espConnected) {
-            log("❌ Нет подключения к ESP32", "sys");
+        if(!config.espConnected || !config.ip) {
+            log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, "sys");
             return;
         }
-        
-        log(`📤 Отправляю команду на ESP32: ${command}`, "sys");
         
         // Отправляем команду на ESP32
         fetch(`http://${config.ip}/command`, {
@@ -148,38 +208,9 @@
             body: command
         }).catch(error => {
             console.error("Ошибка отправки команды:", error);
-            log(`❌ Ошибка отправки команды: ${error.message}`, "sys");
         });
-    }
-
-    function showControlPanel() {
-        const controlPanel = document.createElement('div');
-        controlPanel.className = 'controls';
-        controlPanel.innerHTML = `
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <button onclick="sendESP32Command('LED_ON')" style="flex: 1;">💡 LED ON</button>
-                <button onclick="sendESP32Command('LED_OFF')" style="flex: 1;">💡 LED OFF</button>
-            </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <button onclick="sendESP32Command('MOVE_FORWARD|50|2000')" style="flex: 1;">⬆ ВПЕРЕД</button>
-                <button onclick="sendESP32Command('STOP')" style="flex: 1;">⏹ СТОП</button>
-            </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <button onclick="sendESP32Command('ROTATE_LEFT|90|50')" style="flex: 1;">↶ ПОВОРОТ</button>
-                <button onclick="sendESP32Command('ROTATE_RIGHT|90|50')" style="flex: 1;">↷ ПОВОРОТ</button>
-            </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <button onclick="sendESP32Command('DANCE_1')" style="flex: 1;">🕺 ТАНЕЦ 1</button>
-                <button onclick="sendESP32Command('DANCE_2')" style="flex: 1;">💃 ТАНЕЦ 2</button>
-                <button onclick="sendESP32Command('DANCE_3')" style="flex: 1;">👯 ТАНЕЦ 3</button>
-            </div>
-            <button onclick="toggleVoiceControl()" id="voiceBtn" style="background: #0094ff;">
-                <span>🎤</span>
-                <span id="voiceBtnText">ВКЛЮЧИТЬ ГОЛОС</span>
-            </button>
-        `;
         
-        document.body.appendChild(controlPanel);
+        log(`📤 Команда отправлена на ESP32: ${command}`, "sys");
     }
 
     // Этап 1: Ожидание активационного имени "Пиксель"
@@ -200,24 +231,14 @@
         };
 
         recognition.onend = () => { 
-            if(st.innerText === "LISTENING (NAME)" && config.active) {
-                safeRestart();
-            }
-        };
-        
-        recognition.onerror = (event) => {
-            if (event.error === 'not-allowed') {
-                log("Разрешите доступ к микрофону в настройках браузера", "sys");
-                toggleVoiceControl(); // Выключаем голосовое управление
-            }
-            safeRestart();
+            if(st.innerText === "LISTENING (NAME)") safeRestart(); 
         };
         
         try { 
             recognition.start(); 
         } catch(e) {
-            console.error("Recognition start error:", e);
-            safeRestart();
+            console.error("Ошибка запуска распознавания:", e);
+            setTimeout(safeRestart, 100);
         }
     }
 
@@ -233,14 +254,12 @@
             
             recognition.onresult = (event) => {
                 const cmdText = event.results[0][0].transcript;
-                log(`<span class="user">ЗАПРОС: ${cmdText}</span>`);
+                log(`<span class="user">ЗАПРОС: "${cmdText}"</span>`);
                 askTrinity(cmdText);
             };
             
             recognition.onend = () => { 
-                if(st.innerText === "LISTENING (CMD)" && config.active) {
-                    safeRestart();
-                }
+                if(st.innerText === "LISTENING (CMD)") safeRestart(); 
             };
             
             try { 
@@ -338,8 +357,10 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
                 commands.forEach(cmd => {
                     log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, "sys");
                     
-                    // Отправляем команду на ESP32
-                    sendESP32Command(cmd.trim());
+                    // Отправляем команду на ESP32 если подключено
+                    if(config.espConnected && config.ip) {
+                        sendESP32Command(cmd.trim());
+                    }
                 });
             }
 
@@ -356,7 +377,7 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
         window.speechSynthesis.cancel();
         const msg = new SpeechSynthesisUtterance(text);
         msg.lang = 'ru-RU';
-        msg.rate = 0.9;
+        msg.rate = 0.9; // Немного медленнее для лучшего понимания
         msg.onend = callback;
         window.speechSynthesis.speak(msg);
     }
@@ -370,38 +391,6 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
                     console.error("Failed to restart recognition:", e);
                 } 
             }, 100);
-        }
-    }
-
-    function toggleVoiceControl() {
-        if(!config.active) {
-            alert("Сначала инициализируйте систему!");
-            return;
-        }
-        
-        const voiceBtn = document.getElementById('voiceBtn');
-        const voiceBtnText = document.getElementById('voiceBtnText');
-        
-        if(voiceBtn.style.background === 'rgb(0, 148, 255)') {
-            // Включаем голосовое управление
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(() => {
-                    voiceBtn.style.background = '#ff4757';
-                    voiceBtnText.innerText = "ВЫКЛЮЧИТЬ ГОЛОС";
-                    startWaitingForName();
-                })
-                .catch(err => {
-                    log("❌ Не удалось получить доступ к микрофону", "sys");
-                    alert("Разрешите доступ к микрофону в настройках браузера!");
-                });
-        } else {
-            // Выключаем голосовое управление
-            voiceBtn.style.background = '#0094ff';
-            voiceBtnText.innerText = "ВКЛЮЧИТЬ ГОЛОС";
-            recognition.stop();
-            window.speechSynthesis.cancel();
-            st.innerText = "READY";
-            st.style.color = "#00ff9d";
         }
     }
 </script>
