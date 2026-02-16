@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: OpenCV + ИИ трекер (исправленный)</title>
+    <title>PIXEL AI: OpenCV + ИИ трекер (оптимизированный)</title>
     <style>
         :root { --neon: #ffaa00; --bg: #0a0a0a; --track-color: #00ff9d; }
         body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
@@ -201,8 +201,8 @@
             background: #333;
         }
     </style>
-    <!-- Загружаем OpenCV.js -->
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady()"></script>
+    <!-- OpenCV.js загружается асинхронно -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvLoaded()"></script>
 </head>
 <body>
 
@@ -317,7 +317,7 @@
 
 <script>
     // ========== Глобальные переменные ==========
-    let cvReady = false; // Флаг готовности OpenCV
+    let cvReady = false; // Флаг готовности OpenCV runtime
     let config = { key: '', ip: '', active: false, espConnected: false, lang: 'ru' };
     let videoStream = null;
     let hiddenCanvas = document.createElement('canvas');
@@ -327,12 +327,24 @@
     let lastCommandTime = 0;
     const COMMAND_COOLDOWN = 200;
     let lastTimestamp = 0, frameCount = 0, fps = 0;
-    
-    // OpenCV specific
-    let src = null;          // исходный кадр (RGBA)
-    let hsv = null;          // HSV представление
-    let mask = null;         // объединённая маска
-    let kernel = null;       // ядро для морфологии
+
+    // ===== OpenCV persistent objects (инициализируются после старта камеры) =====
+    let cvSrc = null;        // RGBA frame
+    let cvHsv = null;        // HSV frame
+    let cvMask = null;       // final mask
+    let cvTempMask = null;   // temporary mask for range combination
+    let cvContourMask = null; // mask for the selected contour (light adaptation)
+    let cvKernel = null;
+    let cvContours = null;
+    let cvHierarchy = null;
+    let frameW = 0, frameH = 0;
+
+    // ===== Автоматическая адаптация к освещению (EMA) =====
+    const ADAPT_ALPHA = 0.1;        // коэффициент сглаживания EMA
+    const ADAPT_MARGIN = 30;        // запас для S и V (в единицах 0-255)
+    let emaS = 128.0;               // текущее среднее S (0-255)
+    let emaV = 128.0;               // текущее среднее V (0-255)
+    let adaptationEnabled = true;   // можно отключить при необходимости
 
     // Цветовые диапазоны (массив объектов { hMin, hMax, sMin, sMax, vMin, vMax })
     let colorRanges = [];
@@ -356,7 +368,7 @@
     const overlayCanvas = document.getElementById('overlayCanvas');
     const overlayCtx = overlayCanvas.getContext('2d');
     const maskCanvas = document.getElementById('maskCanvas');
-    const maskCtx = maskCanvas.getContext('2d');
+    const maskCtx = maskCanvas.getContext('2d'); // всё ещё используется для очистки, но imshow заменяет
     const stopTrackingBtn = document.getElementById('stopTrackingBtn');
     const xPosEl = document.getElementById('xPos');
     const yPosEl = document.getElementById('yPos');
@@ -543,11 +555,40 @@
         currentColorName.textContent = `H:${currentColor.h} S:${currentColor.s} V:${currentColor.v}`;
     }
 
-    // ========== OpenCV.js ready ==========
-    function onOpenCvReady() {
-        cvReady = true;
-        log('✅ OpenCV.js загружен', 'sys');
-        kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+    // ========== OpenCV.js инициализация ==========
+    function onOpenCvLoaded() {
+        // Этот колбэк вызывается после загрузки скрипта, но runtime ещё не готов.
+        // Устанавливаем обработчик на runtime.
+        cv.onRuntimeInitialized = () => {
+            cvReady = true;
+            log('✅ OpenCV.js runtime готов', 'sys');
+
+            // Создаём постоянные объекты, которые не зависят от размера кадра
+            cvKernel = cv.Mat.ones(5, 5, cv.CV_8U);
+            cvContours = new cv.MatVector();
+            cvHierarchy = new cv.Mat();
+        };
+    }
+
+    // Создание/пересоздание буферов под текущий размер кадра
+    function initOpenCVBuffers(w, h) {
+        if (!cvReady) return;
+        frameW = w;
+        frameH = h;
+
+        if (cvSrc) cvSrc.delete();
+        if (cvHsv) cvHsv.delete();
+        if (cvMask) cvMask.delete();
+        if (cvTempMask) cvTempMask.delete();
+        if (cvContourMask) cvContourMask.delete();
+
+        cvSrc = new cv.Mat(h, w, cv.CV_8UC4);
+        cvHsv = new cv.Mat(h, w, cv.CV_8UC3);
+        cvMask = new cv.Mat(h, w, cv.CV_8UC1);
+        cvTempMask = new cv.Mat(h, w, cv.CV_8UC1);
+        cvContourMask = new cv.Mat(h, w, cv.CV_8UC1);
+
+        log(`🧠 OpenCV буферы ${w}×${h} созданы`, 'sys');
     }
 
     // ========== Инициализация камеры ==========
@@ -568,16 +609,33 @@
                 maskCanvas.height = height;
                 hiddenCanvas.width = width;
                 hiddenCanvas.height = height;
+
+                // Инициализируем OpenCV буферы под этот размер
+                if (cvReady) {
+                    initOpenCVBuffers(width, height);
+                } else {
+                    // Если OpenCV ещё не готов, подождём и повторим
+                    const waitForCV = setInterval(() => {
+                        if (cvReady) {
+                            clearInterval(waitForCV);
+                            initOpenCVBuffers(width, height);
+                        }
+                    }, 100);
+                }
+
                 log(`📐 Размер видео: ${width}x${height}`, 'sys');
             });
 
+            // Если метаданные уже загружены
             if (videoElement.videoWidth) {
-                overlayCanvas.width = videoElement.videoWidth;
-                overlayCanvas.height = videoElement.videoHeight;
-                maskCanvas.width = videoElement.videoWidth;
-                maskCanvas.height = videoElement.videoHeight;
-                hiddenCanvas.width = videoElement.videoWidth;
-                hiddenCanvas.height = videoElement.videoHeight;
+                const w = videoElement.videoWidth, h = videoElement.videoHeight;
+                overlayCanvas.width = w;
+                overlayCanvas.height = h;
+                maskCanvas.width = w;
+                maskCanvas.height = h;
+                hiddenCanvas.width = w;
+                hiddenCanvas.height = h;
+                if (cvReady) initOpenCVBuffers(w, h);
             }
 
             cameraPanel.style.display = 'flex';
@@ -618,7 +676,6 @@
     function setColorRangesFromAI(rangesArray) {
         let newRanges = [];
         for (let r of rangesArray) {
-            // Проверяем корректность (s и v должны быть в 0-255)
             let validated = {
                 hMin: Math.max(0, Math.min(360, r.hMin)),
                 hMax: Math.max(0, Math.min(360, r.hMax)),
@@ -627,12 +684,14 @@
                 vMin: Math.max(0, Math.min(255, r.vMin)),
                 vMax: Math.max(0, Math.min(255, r.vMax))
             };
-            // Разбиваем при необходимости
             newRanges.push(...splitHueRange(validated));
         }
         colorRanges = newRanges;
         if (colorRanges.length === 0) return;
-        // Для отображения возьмём среднее первого диапазона (упрощённо)
+        // Сбросим EMA при смене диапазона (адаптация начнётся заново)
+        emaS = 128; emaV = 128;
+
+        // Для отображения в слайдерах (берём среднее первого)
         const first = colorRanges[0];
         let h = Math.round((first.hMin + first.hMax) / 2);
         if (first.hMin > first.hMax) h = Math.round(((first.hMin + first.hMax + 360) / 2) % 360);
@@ -643,85 +702,100 @@
         updateColorUI();
     }
 
+    // Адаптация S и V диапазона к текущим условиям освещения
+    function adaptColorRange(meanS, meanV) {
+        if (!adaptationEnabled || colorRanges.length === 0) return;
+
+        // Обновляем EMA
+        emaS = ADAPT_ALPHA * meanS + (1 - ADAPT_ALPHA) * emaS;
+        emaV = ADAPT_ALPHA * meanV + (1 - ADAPT_ALPHA) * emaV;
+
+        // Применяем к первому диапазону (предполагаем, что основной)
+        let range = colorRanges[0];
+        // Вычисляем новые границы с запасом
+        let newSMin = Math.max(0, Math.min(255, Math.round(emaS - ADAPT_MARGIN)));
+        let newSMax = Math.max(0, Math.min(255, Math.round(emaS + ADAPT_MARGIN)));
+        let newVMin = Math.max(0, Math.min(255, Math.round(emaV - ADAPT_MARGIN)));
+        let newVMax = Math.max(0, Math.min(255, Math.round(emaV + ADAPT_MARGIN)));
+
+        // Убедимся, что min <= max
+        if (newSMin > newSMax) { let tmp = newSMin; newSMin = newSMax; newSMax = tmp; }
+        if (newVMin > newVMax) { let tmp = newVMin; newVMin = newVMax; newVMax = tmp; }
+
+        range.sMin = newSMin;
+        range.sMax = newSMax;
+        range.vMin = newVMin;
+        range.vMax = newVMax;
+
+        // Для многодиапазонных случаев можно адаптировать все, но пока ограничимся первым
+    }
+
     function processFrameWithOpenCV() {
-        if (!cvReady || !trackingActive || !videoElement || videoElement.readyState < 2) return;
+        if (!cvReady || !trackingActive || videoElement.readyState < 2 || frameW === 0) return;
 
-        const width = videoElement.videoWidth;
-        const height = videoElement.videoHeight;
-        if (width === 0 || height === 0) return;
+        // === Захват кадра в hiddenCanvas и копирование в cvSrc ===
+        hiddenCtx.drawImage(videoElement, 0, 0, frameW, frameH);
+        const imgData = hiddenCtx.getImageData(0, 0, frameW, frameH);
+        cvSrc.data.set(imgData.data); // быстрое копирование
 
-        // Захватываем кадр в hiddenCanvas
-        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
-        const imageData = hiddenCtx.getImageData(0, 0, width, height);
+        // RGBA → HSV
+        cv.cvtColor(cvSrc, cvHsv, cv.COLOR_RGBA2HSV);
 
-        // Создаём матрицу OpenCV из данных RGBA
-        src = cv.matFromImageData(imageData);
-        // Конвертируем в HSV (вход RGBA, поэтому используем COLOR_RGBA2HSV)
-        hsv = new cv.Mat();
-        cv.cvtColor(src, hsv, cv.COLOR_RGBA2HSV);
+        // Очистка маски
+        cvMask.setTo(new cv.Scalar(0));
 
-        // Создаём объединённую маску
-        mask = new cv.Mat.zeros(height, width, cv.CV_8UC1);
-
-        // Для каждого диапазона строим маску и объединяем
-        for (let range of colorRanges) {
-            // OpenCV HSV: H 0-180, S 0-255, V 0-255
-            let lower = new cv.Scalar(range.hMin / 2, range.sMin, range.vMin);
-            let upper = new cv.Scalar(range.hMax / 2, range.sMax, range.vMax);
-            let tempMask = new cv.Mat();
-            cv.inRange(hsv, lower, upper, tempMask);
-            cv.bitwiseOr(mask, tempMask, mask);
-            tempMask.delete();
+        // Построение маски по всем диапазонам
+        for (const range of colorRanges) {
+            const low = new cv.Scalar(range.hMin / 2, range.sMin, range.vMin);
+            const high = new cv.Scalar(range.hMax / 2, range.sMax, range.vMax);
+            cv.inRange(cvHsv, low, high, cvTempMask);
+            cv.bitwiseOr(cvMask, cvTempMask, cvMask);
         }
 
-        // Морфологические операции для очистки маски
-        if (kernel) {
-            cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel);
-            cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
-        }
+        // Морфология (удаление шума)
+        cv.morphologyEx(cvMask, cvMask, cv.MORPH_OPEN, cvKernel);
+        cv.morphologyEx(cvMask, cvMask, cv.MORPH_CLOSE, cvKernel);
 
-        // Отображаем маску на соседнем canvas
-        // Маска одноканальная (CV_8UC1), преобразуем в ImageData для отображения
-        let maskData = new ImageData(new Uint8ClampedArray(mask.data), width, height);
-        maskCtx.putImageData(maskData, 0, 0);
+        // Отображение маски (быстрый способ)
+        cv.imshow(maskCanvas, cvMask);
 
-        // Находим контуры
-        let contours = new cv.MatVector();
-        let hierarchy = new cv.Mat();
-        cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        // Поиск контуров
+        cv.findContours(cvMask, cvContours, cvHierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-        // Собираем кандидатов
+        // Сбор кандидатов
         candidates = [];
-        for (let i = 0; i < contours.size(); i++) {
-            let contour = contours.get(i);
-            let area = cv.contourArea(contour);
-            if (area < 500) continue; // минимальная площадь
-            let rect = cv.boundingRect(contour);
+        for (let i = 0; i < cvContours.size(); i++) {
+            const contour = cvContours.get(i);
+            const area = cv.contourArea(contour);
+            if (area < 600) continue;
+            const rect = cv.boundingRect(contour);
             candidates.push({
-                contour: contour,
+                contour: contour.clone(), // важно: клонируем, чтобы сохранить для дальнейшего использования (иначе ссылка затрётся)
                 boundingRect: rect,
                 area: area,
                 index: i
             });
         }
 
-        // Если есть кандидаты
+        overlayCtx.clearRect(0, 0, frameW, frameH);
+
+        // Если есть кандидаты, обрабатываем выбор
         if (candidates.length > 0) {
             if (!awaitingUserChoice) {
                 if (candidates.length === 1) {
                     selectedCandidateIndex = 0;
                 } else {
                     if (selectedCandidateIndex === -1) {
+                        // Запускаем выбор через ИИ (асинхронно, не блокирует цикл)
                         askAIForShapeDescriptions(candidates);
                         awaitingUserChoice = true;
                     }
                 }
             }
 
-            // Рисуем все рамки на оверлее
-            overlayCtx.clearRect(0, 0, width, height);
+            // Рисуем все рамки
             for (let i = 0; i < candidates.length; i++) {
-                let r = candidates[i].boundingRect;
+                const r = candidates[i].boundingRect;
                 overlayCtx.strokeStyle = (i === selectedCandidateIndex) ? '#00ff9d' : '#ffaa00';
                 overlayCtx.lineWidth = (i === selectedCandidateIndex) ? 3 : 1;
                 overlayCtx.strokeRect(r.x, r.y, r.width, r.height);
@@ -730,24 +804,44 @@
                 overlayCtx.fillText(`#${i+1}`, r.x, r.y-5);
             }
 
+            // Если выбран конкретный объект, обновляем статистику и выполняем адаптацию
             if (selectedCandidateIndex >= 0 && selectedCandidateIndex < candidates.length) {
-                let r = candidates[selectedCandidateIndex].boundingRect;
-                let centerX = r.x + r.width/2;
-                let centerY = r.y + r.height/2;
-                xPosEl.textContent = Math.round(centerX);
-                yPosEl.textContent = Math.round(centerY);
+                const r = candidates[selectedCandidateIndex].boundingRect;
+                const cx = r.x + r.width / 2;
+                const cy = r.y + r.height / 2;
+
+                xPosEl.textContent = Math.round(cx);
+                yPosEl.textContent = Math.round(cy);
                 objectSizeEl.textContent = `${r.width}×${r.height}`;
-                let conf = Math.min(100, Math.round(candidates[selectedCandidateIndex].area / (width*height) * 1000));
+                let conf = Math.min(100, Math.round(candidates[selectedCandidateIndex].area / (frameW * frameH) * 1200));
                 confidenceEl.textContent = conf + '%';
 
+                // ===== Автоматическая адаптация S и V =====
+                if (adaptationEnabled && colorRanges.length > 0) {
+                    // Создаём маску только для выбранного контура
+                    cvContourMask.setTo(new cv.Scalar(0));
+                    const contour = candidates[selectedCandidateIndex].contour;
+                    const color = new cv.Scalar(255);
+                    cv.drawContours(cvContourMask, [contour], 0, color, -1); // заливка контура
+
+                    // Вычисляем средние S и V внутри этой маски
+                    const mean = cv.mean(cvHsv, cvContourMask);
+                    const meanS = mean[1]; // канал S
+                    const meanV = mean[2]; // канал V
+
+                    // Адаптируем диапазон
+                    adaptColorRange(meanS, meanV);
+                }
+
+                // Отправка команд на ESP32 (если нужно)
                 if (config.espConnected) {
-                    const frameCenterX = width / 2;
-                    const threshold = width * 0.1;
+                    const frameCenterX = frameW / 2;
+                    const threshold = frameW * 0.1;
                     const now = performance.now();
                     if (now - lastCommandTime > COMMAND_COOLDOWN) {
                         let command = null;
-                        if (centerX < frameCenterX - threshold) command = 'ROTATE_LEFT|30|150';
-                        else if (centerX > frameCenterX + threshold) command = 'ROTATE_RIGHT|30|150';
+                        if (cx < frameCenterX - threshold) command = 'ROTATE_LEFT|30|150';
+                        else if (cx > frameCenterX + threshold) command = 'ROTATE_RIGHT|30|150';
                         if (command) {
                             sendESP32Command(command);
                             lastCommandTime = now;
@@ -759,13 +853,14 @@
                 objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
             }
         } else {
-            overlayCtx.clearRect(0, 0, width, height);
             xPosEl.textContent = '-'; yPosEl.textContent = '-';
             objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
         }
 
-        // Очистка памяти OpenCV
-        src.delete(); hsv.delete(); mask.delete(); contours.delete(); hierarchy.delete();
+        // Освобождаем клонированные контуры (чтобы избежать утечек)
+        for (let c of candidates) {
+            if (c.contour) c.contour.delete();
+        }
     }
 
     async function askAIForShapeDescriptions(candidates) {
@@ -871,7 +966,9 @@
                 trackingLoopId = null;
             }
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+            // Очищаем маску
+            if (cvMask) cvMask.setTo(new cv.Scalar(0));
+            cv.imshow(maskCanvas, cvMask);
             xPosEl.textContent = '-'; yPosEl.textContent = '-';
             objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
             log('⏹ Режим слежения отключен', 'sys');
@@ -989,7 +1086,7 @@
         let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
         let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
         let range = { hMin, hMax, sMin, sMax, vMin, vMax };
-        colorRanges = splitHueRange(range); // разбиваем при необходимости
+        colorRanges = splitHueRange(range);
         log(`✅ Цвет откалиброван: H=${currentColor.h}°, S=${currentColor.s}%, V=${currentColor.v}%`, 'sys');
         videoElement.style.cursor = 'default';
         isCalibrating = false;
@@ -1181,6 +1278,22 @@ Commands: [команды через ; или null]`
         }
     }
 
+    // ========== Очистка при выгрузке ==========
+    window.addEventListener('beforeunload', () => {
+        if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+        stopTracking();
+
+        // Освобождаем OpenCV ресурсы
+        if (cvSrc) cvSrc.delete();
+        if (cvHsv) cvHsv.delete();
+        if (cvMask) cvMask.delete();
+        if (cvTempMask) cvTempMask.delete();
+        if (cvContourMask) cvContourMask.delete();
+        if (cvKernel) cvKernel.delete();
+        if (cvContours) cvContours.delete();
+        if (cvHierarchy) cvHierarchy.delete();
+    });
+
     // ========== Инициализация ==========
     bootBtn.addEventListener('click', boot);
     stopTrackingBtn.addEventListener('click', stopTracking);
@@ -1192,11 +1305,6 @@ Commands: [команды через ; или null]`
         currentColor.threshold.h = parseInt(sensSlider.value);
         sensVal.textContent = currentColor.threshold.h;
         updateColorUI();
-    });
-
-    window.addEventListener('beforeunload', () => {
-        if (videoStream) videoStream.getTracks().forEach(t => t.stop());
-        stopTracking();
     });
 
     updateColorUI();
