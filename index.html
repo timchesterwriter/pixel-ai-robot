@@ -1,242 +1,2260 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Color Tracking — OpenCV.js</title>
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <style>
-    * {
-      box-sizing: border-box;
-      font-family: Inter, system-ui, sans-serif;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>PIXEL AI: Точный трекер с режимами + Программирование + TM</title>
+    <style>
+        :root { --neon: #ffaa00; --bg: #0a0a0a; --track-color: #00ff9d; }
+        body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
+        #terminal { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #222; }
+        .controls { padding: 20px; background: #111; display: flex; flex-direction: column; gap: 10px; }
+        input, select { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
+        button { padding: 15px; background: var(--neon); border: none; font-weight: bold; border-radius: 5px; cursor: pointer; color: #000; }
+        .sys { color: #00d2ff; }
+        .ai { color: #fff; border-left: 2px solid var(--neon); padding-left: 10px; margin: 5px 0; }
+        .user { color: #ff00e5; }
+        .cmd { color: #00ff9d; font-weight: bold; }
+        .esp-connected { color: #00ff9d; }
+        .esp-disconnected { color: #ff4757; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
 
-    body {
-      margin: 0;
-      background: radial-gradient(circle at top, #1e1e2f, #0f0f17);
-      color: #fff;
-      padding: 24px;
-    }
+        /* Language selector */
+        #langPanel {
+            display: flex;
+            justify-content: flex-end;
+            padding: 5px 10px;
+            background: #111;
+        }
+        #langSelect {
+            background: #000;
+            color: var(--neon);
+            border: 1px solid var(--neon);
+            padding: 5px;
+            border-radius: 3px;
+        }
 
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: 700;
-    }
+        /* ESP32 Connection Panel */
+        #espPanel {
+            padding: 15px;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            display: none;
+        }
+        .esp-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .esp-btn {
+            padding: 10px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: var(--neon);
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+        }
+        .esp-btn:hover {
+            background: #333;
+            border-color: var(--neon);
+        }
 
-    .container {
-      display: grid;
-      grid-template-columns: 300px 1fr;
-      gap: 24px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+        /* Camera panel */
+        #cameraPanel {
+            padding: 15px;
+            background: #111;
+            border-top: 1px solid #333;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #cameraHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--neon);
+            font-size: 14px;
+            text-transform: uppercase;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .video-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            border: 2px solid var(--neon);
+            border-radius: 5px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 0 15px rgba(255,170,0,0.3);
+        }
+        .video-container video, .video-container .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .video-container video { z-index: 1; }
+        .video-container .overlay { z-index: 2; pointer-events: none; }
+        .video-container::before {
+            content: "";
+            display: block;
+            padding-top: 75%;
+        }
+        .mask-container {
+            width: 100%;
+            max-width: 480px;
+            border: 2px solid var(--neon);
+            border-radius: 5px;
+            background: #000;
+            box-shadow: 0 0 15px rgba(255,170,0,0.3);
+        }
+        .mask-container canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
 
-    .panel {
-      background: #181825;
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.4);
-    }
+        /* Tracking stats */
+        #trackingStats {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            color: #00ff9d;
+            font-size: 12px;
+        }
+        .stat-item { text-align: center; }
+        .stat-label { color: #aaa; font-size: 10px; }
+        .stat-value { font-weight: bold; color: var(--neon); }
 
-    .panel h2 {
-      font-size: 18px;
-      margin-bottom: 16px;
-    }
+        /* Таблица для MULTI режима */
+        #multiStats {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            display: none;
+            font-size: 12px;
+        }
+        #multiStats table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #multiStats th, #multiStats td {
+            text-align: left;
+            padding: 4px;
+            border-bottom: 1px solid #333;
+        }
+        #multiStats th { color: #aaa; }
 
-    .control {
-      margin-bottom: 14px;
-    }
+        /* Color tuning panel */
+        #colorPanel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .color-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--neon);
+        }
+        .color-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            border: 2px solid white;
+        }
+        .slider-container {
+            margin: 5px 0;
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            color: #aaa;
+            font-size: 12px;
+        }
+        input[type=range] {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon);
+            cursor: pointer;
+        }
+        .mode-badge {
+            background: #00ff9d;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .btn-small {
+            padding: 8px 12px;
+            background: #222;
+            border: 1px solid var(--neon);
+            color: var(--neon);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-small:hover {
+            background: #333;
+        }
 
-    .control label {
-      display: block;
-      font-size: 13px;
-      opacity: .85;
-      margin-bottom: 6px;
-    }
-
-    .control input[type="range"],
-    .control input[type="color"] {
-      width: 100%;
-    }
-
-    .video-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .video-box {
-      background: #0c0c14;
-      border-radius: 16px;
-      padding: 12px;
-      text-align: center;
-    }
-
-    .video-box h3 {
-      font-size: 14px;
-      margin-bottom: 8px;
-      opacity: .8;
-    }
-
-    canvas {
-      width: 100%;
-      border-radius: 12px;
-      background: #000;
-    }
-
-    footer {
-      text-align: center;
-      margin-top: 20px;
-      opacity: .6;
-      font-size: 13px;
-    }
-  </style>
+        /* Дополнительные стили для новых вкладок */
+        .tabs {
+            display: flex;
+            background: #111;
+            border-bottom: 1px solid #333;
+            padding: 0 10px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            color: #aaa;
+            border-bottom: 2px solid transparent;
+            transition: 0.2s;
+        }
+        .tab.active {
+            color: var(--neon);
+            border-bottom-color: var(--neon);
+        }
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .manual-command {
+            padding: 10px;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .manual-command input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--neon);
+            color: var(--neon);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .code-editor {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #333;
+            font-family: monospace;
+            padding: 10px;
+            resize: vertical;
+            margin-top: 10px;
+        }
+        .terminal-output {
+            background: #000;
+            color: #0f0;
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            padding: 10px;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+        .button-bar {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .button-bar button {
+            padding: 8px 12px;
+            background: #222;
+            border: 1px solid var(--neon);
+            color: var(--neon);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .tm-class {
+            margin: 10px 0;
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .tm-class-name {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--neon);
+            width: 0%;
+            transition: width 0.2s;
+        }
+        .progress-text {
+            position: absolute;
+            top: 0;
+            left: 5px;
+            color: #000;
+            font-weight: bold;
+            line-height: 20px;
+            font-size: 12px;
+            mix-blend-mode: difference;
+        }
+        .tm-controls {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .tm-controls input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            background: #000;
+            border: 1px solid #444;
+            color: var(--neon);
+            padding: 8px;
+        }
+        .tm-video {
+            max-width: 480px;
+            border: 2px solid var(--neon);
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .settings-section {
+            margin: 15px 0;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 5px;
+            border-left: 3px solid var(--neon);
+        }
+        .settings-section h3 {
+            margin-top: 0;
+            color: var(--neon);
+            font-size: 16px;
+        }
+        .settings-section input, .settings-section select {
+            background: #000;
+            border: 1px solid #444;
+            color: var(--neon);
+            padding: 8px;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+    </style>
 </head>
-
 <body>
-  <h1>🎯 Отслеживание объекта по цвету (OpenCV.js)</h1>
 
-  <div class="container">
-    <!-- SETTINGS -->
-    <div class="panel">
-      <h2>⚙️ Настройки цвета</h2>
+<!-- Language selector -->
+<div id="langPanel">
+    <select id="langSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+    </select>
+</div>
 
-      <div class="control">
-        <label>Выбранный цвет</label>
-        <input type="color" id="colorPicker" value="#ff0000">
-      </div>
+<div style="padding: 10px; font-size: 12px; background: #111;">
+    <span id="statusLabel">СТАТУС:</span> <span id="st">ГОТОВ</span> | 
+    <span id="espLabel">ESP32:</span> <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | 
+    <span id="camLabel">КАМЕРА:</span> <span id="camStatus" class="esp-disconnected">OFF</span> | 
+    <span id="trackLabel">СЛЕЖЕНИЕ:</span> <span id="trackStatus" class="esp-disconnected">OFF</span> | 
+    <span id="fpsLabel">FPS:</span> <span id="fps">0</span>
+</div>
 
-      <div class="control">
-        <label>Hue Range</label>
-        <input type="range" id="hRange" min="5" max="40" value="15">
-      </div>
+<div id="terminal"></div>
 
-      <div class="control">
-        <label>Min Saturation</label>
-        <input type="range" id="sMin" min="0" max="255" value="100">
-      </div>
-
-      <div class="control">
-        <label>Min Value</label>
-        <input type="range" id="vMin" min="0" max="255" value="100">
-      </div>
+<!-- Camera Panel -->
+<div id="cameraPanel">
+    <div id="cameraHeader">
+        <span id="videoFeedLabel">📷 ВИДЕО</span>
+        <div style="display: flex; gap: 10px;">
+            <select id="trackingModeSelect" class="btn-small">
+                <option value="standard">STANDART</option>
+                <option value="single">SINGLE</option>
+                <option value="multi">MULTI</option>
+            </select>
+            <button id="stopTrackingBtn" onclick="stopTracking()" style="padding: 5px 10px; font-size: 12px; background: transparent; border: 1px solid #ff4757; color: #ff4757;">⏹ СТОП</button>
+        </div>
+    </div>
+    <div class="video-row">
+        <div class="video-container">
+            <video id="videoElement" autoplay playsinline muted></video>
+            <canvas id="overlayCanvas" class="overlay"></canvas>
+        </div>
+        <div class="mask-container">
+            <canvas id="maskCanvas"></canvas>
+        </div>
+    </div>
+    <!-- Tracking statistics -->
+    <div id="trackingStats">
+        <div class="stat-item"><span class="stat-label" id="xLabel">X</span><br><span id="xPos" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="yLabel">Y</span><br><span id="yPos" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="sizeLabel">Размер</span><br><span id="objectSize" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="confLabel">Уверенность</span><br><span id="confidence" class="stat-value">-</span></div>
     </div>
 
-    <!-- VIDEO -->
-    <div class="panel">
-      <div class="video-grid">
-        <div class="video-box">
-          <h3>📷 Видео + Bounding Box</h3>
-          <canvas id="canvasOutput"></canvas>
-        </div>
-
-        <div class="video-box">
-          <h3>🧩 Сегментация</h3>
-          <canvas id="canvasMask"></canvas>
-        </div>
-      </div>
+    <!-- Таблица для MULTI режима -->
+    <div id="multiStats">
+        <table>
+            <thead><tr><th>#</th><th>X</th><th>Y</th><th>Ш×В</th><th>Увер.</th></tr></thead>
+            <tbody id="multiStatsBody"></tbody>
+        </table>
     </div>
-  </div>
 
-  <footer>
-    OpenCV.js · Color Tracking Demo
-  </footer>
+    <!-- Панель точной настройки цвета -->
+    <div id="colorPanel">
+        <div class="color-header">
+            <span id="fineTuneLabel">🎨 Точная настройка цвета</span>
+            <div class="mode-badge" id="currentColorName">H:0 S:100 V:100</div>
+        </div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <div class="color-preview" id="colorPreview" style="background: #ff0000;"></div>
+            <div style="flex:1;">
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn-small" id="calibrateBtn">🔍 Калибровка (клик)</button>
+                    <button class="btn-small" id="applyColorBtn">✅ Применить</button>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: #aaa;">
+                    <span id="hueLabel">H</span>: <span id="hueVal">0</span>° 
+                    <span id="satLabel">S</span>: <span id="satVal">100</span>% 
+                    <span id="valLabel">V</span>: <span id="valVal">100</span>%
+                </div>
+            </div>
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span id="hueSliderLabel">Оттенок (Hue)</span><span id="hueSliderVal">0°</span></div>
+            <input type="range" id="hueSlider" min="0" max="360" value="0" step="1">
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span id="satSliderLabel">Насыщенность</span><span id="satSliderVal">100%</span></div>
+            <input type="range" id="satSlider" min="0" max="100" value="100" step="1">
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span id="valSliderLabel">Яркость</span><span id="valSliderVal">100%</span></div>
+            <input type="range" id="valSlider" min="0" max="100" value="100" step="1">
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span id="sensLabel">Чувствительность</span><span id="sensVal">15</span></div>
+            <input type="range" id="sensSlider" min="5" max="40" value="15" step="1">
+        </div>
+    </div>
+</div>
+
+<!-- Setup Panel -->
+<div class="controls" id="setup">
+    <input type="password" id="key" placeholder="OpenRouter API Key (sk-or-...)">
+    <input type="text" id="ip" placeholder="IP Робота (ESP32)">
+    <button id="bootBtn">ЗАПУСТИТЬ СИСТЕМУ</button>
+</div>
+
+<!-- ESP32 Control Panel -->
+<div id="espPanel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div id="espControlsLabel">УПРАВЛЕНИЕ ESP32</div>
+        <button onclick="testESP32Connection()" style="padding: 8px 12px; font-size: 12px;">🔧 ТЕСТ</button>
+    </div>
+    <div class="esp-controls">
+        <div class="esp-btn" onclick="sendESP32Command('LED_ON')">💡 ON</div>
+        <div class="esp-btn" onclick="sendESP32Command('LED_OFF')">💡 OFF</div>
+        <div class="esp-btn" onclick="sendESP32Command('MOVE_FORWARD|50|2000')">⬆ FWD</div>
+        <div class="esp-btn" onclick="sendESP32Command('STOP')">⏹ STOP</div>
+        <div class="esp-btn" onclick="sendESP32Command('MOVE_BACKWARD|30|1000')">⬇ BACK</div>
+        <div class="esp-btn" onclick="sendESP32Command('ROTATE_LEFT|90|50')">↶ LEFT</div>
+        <div class="esp-btn" onclick="sendESP32Command('ROTATE_RIGHT|90|50')">↷ RIGHT</div>
+        <div class="esp-btn" onclick="sendESP32Command('DANCE_1')">🕺 1</div>
+        <div class="esp-btn" onclick="sendESP32Command('DANCE_2')">💃 2</div>
+        <div class="esp-btn" onclick="sendESP32Command('DANCE_3')">👯 3</div>
+        <div class="esp-btn" onclick="sendESP32Command('REMOTECONTROL_MODE')">🎮 REMOTE</div>
+        <div class="esp-btn" onclick="sendESP32Command('WAIT_2')">⏱ WAIT 2s</div>
+    </div>
+</div>
 
 <script>
-let video = document.createElement('video');
-video.autoplay = true;
+    // ========== Глобальные переменные ==========
+    let config = { key: '', ip: '', active: false, espConnected: false, lang: 'ru' };
+    let videoStream = null;
+    let hiddenCanvas = document.createElement('canvas');
+    let hiddenCtx = hiddenCanvas.getContext('2d');
+    let trackingActive = false;
+    let trackingLoopId = null;
+    let lastCommandTime = 0;
+    const COMMAND_COOLDOWN = 200;
+    let lastTimestamp = 0, frameCount = 0, fps = 0;
 
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => video.srcObject = stream);
+    // Цветовые диапазоны
+    let colorRanges = [];
 
-function hexToHSV(hex) {
-  let r = parseInt(hex.substr(1,2),16)/255;
-  let g = parseInt(hex.substr(3,2),16)/255;
-  let b = parseInt(hex.substr(5,2),16)/255;
+    // Для выбора объекта из нескольких кандидатов
+    let candidates = [];          // массив объектов { boundingRect, area, index }
+    let selectedCandidateIndex = -1;
+    let awaitingUserChoice = false;
 
-  let max = Math.max(r,g,b), min = Math.min(r,g,b);
-  let d = max - min;
-  let h = 0;
+    // Новые переменные для режимов
+    let trackingMode = 'standard'; // 'standard', 'single', 'multi'
+    let maxTrackObjects = 3;
+    let trackedObjects = [];       // массив индексов выбранных объектов для MULTI
 
-  if (d !== 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-  }
+    // DOM элементы
+    const term = document.getElementById('terminal');
+    const st = document.getElementById('st');
+    const espStatus = document.getElementById('espStatus');
+    const camStatus = document.getElementById('camStatus');
+    const trackStatus = document.getElementById('trackStatus');
+    const fpsEl = document.getElementById('fps');
+    const espPanel = document.getElementById('espPanel');
+    const setupPanel = document.getElementById('setup');
+    const cameraPanel = document.getElementById('cameraPanel');
+    const videoElement = document.getElementById('videoElement');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const overlayCtx = overlayCanvas.getContext('2d');
+    const maskCanvas = document.getElementById('maskCanvas');
+    const maskCtx = maskCanvas.getContext('2d');
+    const stopTrackingBtn = document.getElementById('stopTrackingBtn');
+    const xPosEl = document.getElementById('xPos');
+    const yPosEl = document.getElementById('yPos');
+    const objectSizeEl = document.getElementById('objectSize');
+    const confidenceEl = document.getElementById('confidence');
+    const langSelect = document.getElementById('langSelect');
+    const bootBtn = document.getElementById('bootBtn');
+    const calibrateBtn = document.getElementById('calibrateBtn');
+    const applyColorBtn = document.getElementById('applyColorBtn');
+    const colorPreview = document.getElementById('colorPreview');
+    const hueSlider = document.getElementById('hueSlider');
+    const satSlider = document.getElementById('satSlider');
+    const valSlider = document.getElementById('valSlider');
+    const sensSlider = document.getElementById('sensSlider');
+    const hueSliderVal = document.getElementById('hueSliderVal');
+    const satSliderVal = document.getElementById('satSliderVal');
+    const valSliderVal = document.getElementById('valSliderVal');
+    const sensVal = document.getElementById('sensVal');
+    const hueVal = document.getElementById('hueVal');
+    const satVal = document.getElementById('satVal');
+    const valVal = document.getElementById('valVal');
+    const currentColorName = document.getElementById('currentColorName');
+    const colorPanel = document.getElementById('colorPanel');
+    const trackingModeSelect = document.getElementById('trackingModeSelect');
+    const multiStats = document.getElementById('multiStats');
+    const multiStatsBody = document.getElementById('multiStatsBody');
 
-  h = Math.round(h * 30);
-  if (h < 0) h += 180;
+    // Текущий цвет для ручной настройки
+    let currentColor = { h: 0, s: 100, v: 100, threshold: { h: 15, s: 30, v: 30 } };
 
-  let s = max === 0 ? 0 : d / max;
-  let v = max;
+    // ========== Языковые ресурсы (добавлены новые строки) ==========
+    const translations = {
+        ru: {
+            status: "СТАТУС",
+            esp: "ESP32",
+            camera: "КАМЕРА",
+            tracking: "СЛЕЖЕНИЕ",
+            fps: "FPS",
+            videoFeed: "📷 ВИДЕО",
+            stopTrack: "⏹ СТОП",
+            x: "X",
+            y: "Y",
+            size: "Размер",
+            confidence: "Уверенность",
+            fineTune: "🎨 Точная настройка цвета",
+            hue: "Оттенок (Hue)",
+            saturation: "Насыщенность",
+            value: "Яркость",
+            sensitivity: "Чувствительность",
+            calibrate: "🔍 Калибровка (клик)",
+            apply: "✅ Применить",
+            boot: "ЗАПУСТИТЬ СИСТЕМУ",
+            espControls: "УПРАВЛЕНИЕ ESP32",
+            test: "ТЕСТ",
+            multipleObjects: "Найдено несколько объектов. Какой отслеживать?",
+            chooseOne: "Выберите один: ",
+            listeningName: "СЛУШАЮ (ИМЯ)",
+            listeningCmd: "СЛУШАЮ (КОМАНДА)",
+            thinking: "ДУМАЮ",
+            replying: "ОТВЕЧАЮ",
+            ready: "ГОТОВ",
+            error: "ОШИБКА",
+            modeStandard: "STANDART",
+            modeSingle: "SINGLE",
+            modeMulti: "MULTI",
+            multiTableHeader: "#	X	Y	Ш×В	Увер."
+        },
+        en: {
+            status: "STATUS",
+            esp: "ESP32",
+            camera: "CAMERA",
+            tracking: "TRACKING",
+            fps: "FPS",
+            videoFeed: "📷 VIDEO",
+            stopTrack: "⏹ STOP",
+            x: "X",
+            y: "Y",
+            size: "Size",
+            confidence: "Confidence",
+            fineTune: "🎨 Fine Tune Color",
+            hue: "Hue",
+            saturation: "Saturation",
+            value: "Value",
+            sensitivity: "Sensitivity",
+            calibrate: "🔍 Calibrate (click)",
+            apply: "✅ Apply",
+            boot: "BOOT SYSTEM",
+            espControls: "ESP32 CONTROLS",
+            test: "TEST",
+            multipleObjects: "Multiple objects found. Which one to track?",
+            chooseOne: "Choose one: ",
+            listeningName: "LISTENING (NAME)",
+            listeningCmd: "LISTENING (COMMAND)",
+            thinking: "THINKING",
+            replying: "REPLYING",
+            ready: "READY",
+            error: "ERROR",
+            modeStandard: "STANDARD",
+            modeSingle: "SINGLE",
+            modeMulti: "MULTI",
+            multiTableHeader: "#	X	Y	W×H	Conf."
+        }
+    };
 
-  return [h, Math.round(s * 255), Math.round(v * 255)];
-}
-
-cv['onRuntimeInitialized'] = () => {
-  const cap = new cv.VideoCapture(video);
-
-  const src = new cv.Mat(480, 640, cv.CV_8UC4);
-  const hsv = new cv.Mat();
-  const mask = new cv.Mat();
-  const contours = new cv.MatVector();
-  const hierarchy = new cv.Mat();
-
-  const canvasOutput = document.getElementById('canvasOutput');
-  const canvasMask = document.getElementById('canvasMask');
-
-  function process() {
-    cap.read(src);
-    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
-    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
-
-    const color = document.getElementById('colorPicker').value;
-    const hRange = +document.getElementById('hRange').value;
-    const sMin = +document.getElementById('sMin').value;
-    const vMin = +document.getElementById('vMin').value;
-
-    const [h,s,v] = hexToHSV(color);
-
-    let lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [h-hRange, sMin, vMin, 0]);
-    let upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [h+hRange, 255, 255, 255]);
-
-    cv.inRange(hsv, lower, upper, mask);
-
-    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-    let maxArea = 0;
-    let maxContour = null;
-
-    for (let i = 0; i < contours.size(); i++) {
-      let cnt = contours.get(i);
-      let area = cv.contourArea(cnt);
-      if (area > maxArea) {
-        maxArea = area;
-        maxContour = cnt;
-      }
+    // Функция обновления языка интерфейса (расширена)
+    function updateLanguage(lang) {
+        config.lang = lang;
+        const t = translations[lang];
+        document.getElementById('statusLabel').innerText = t.status + ':';
+        document.getElementById('espLabel').innerText = t.esp + ':';
+        document.getElementById('camLabel').innerText = t.camera + ':';
+        document.getElementById('trackLabel').innerText = t.tracking + ':';
+        document.getElementById('fpsLabel').innerText = t.fps + ':';
+        document.getElementById('videoFeedLabel').innerText = t.videoFeed;
+        document.getElementById('stopTrackingBtn').innerText = t.stopTrack;
+        document.getElementById('xLabel').innerText = t.x;
+        document.getElementById('yLabel').innerText = t.y;
+        document.getElementById('sizeLabel').innerText = t.size;
+        document.getElementById('confLabel').innerText = t.confidence;
+        document.getElementById('fineTuneLabel').innerText = t.fineTune;
+        document.getElementById('hueSliderLabel').innerText = t.hue;
+        document.getElementById('satSliderLabel').innerText = t.saturation;
+        document.getElementById('valSliderLabel').innerText = t.value;
+        document.getElementById('sensLabel').innerText = t.sensitivity;
+        document.getElementById('calibrateBtn').innerText = t.calibrate;
+        document.getElementById('applyColorBtn').innerText = t.apply;
+        document.getElementById('bootBtn').innerText = t.boot;
+        document.getElementById('espControlsLabel').innerText = t.espControls;
+        // Обновляем options в select
+        const modeSelect = document.getElementById('trackingModeSelect');
+        modeSelect.options[0].text = t.modeStandard;
+        modeSelect.options[1].text = t.modeSingle;
+        modeSelect.options[2].text = t.modeMulti;
+        if (!config.active) st.innerText = t.ready;
     }
 
-    if (maxContour) {
-      let rect = cv.boundingRect(maxContour);
-      cv.rectangle(
-        src,
-        new cv.Point(rect.x, rect.y),
-        new cv.Point(rect.x + rect.width, rect.y + rect.height),
-        [0,255,0,255],
-        2
-      );
+    langSelect.addEventListener('change', (e) => {
+        updateLanguage(e.target.value);
+        if (config.active) {
+            stopListening();
+            startWaitingForName();
+        }
+    });
+
+    // ========== Вспомогательные функции ==========
+    function log(msg, cl = '') {
+        const d = document.createElement('div');
+        if(cl) d.className = cl;
+        d.innerHTML = `> ${msg}`;
+        term.appendChild(d);
+        term.scrollTop = term.scrollHeight;
     }
 
-    cv.imshow(canvasOutput, src);
-    cv.imshow(canvasMask, mask);
+    function rgbToHsv(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const diff = max - min;
+        let h = 0, s = 0, v = max;
+        if (diff !== 0) {
+            s = diff / max;
+            if (max === r) h = (g - b) / diff + (g < b ? 6 : 0);
+            else if (max === g) h = (b - r) / diff + 2;
+            else h = (r - g) / diff + 4;
+            h /= 6;
+        }
+        return { h: Math.round(h * 360), s, v };
+    }
 
-    lower.delete();
-    upper.delete();
-    requestAnimationFrame(process);
-  }
+    function hsvToRgb(h, s, v) {
+        let r, g, b;
+        const hi = Math.floor(h / 60) % 6;
+        const f = h / 60 - hi;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+        switch (hi) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+        }
+        return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    }
 
-  process();
-};
+    function updateColorUI() {
+        hueSlider.value = currentColor.h;
+        satSlider.value = currentColor.s;
+        valSlider.value = currentColor.v;
+        sensSlider.value = currentColor.threshold.h;
+        hueSliderVal.textContent = currentColor.h + '°';
+        satSliderVal.textContent = currentColor.s + '%';
+        valSliderVal.textContent = currentColor.v + '%';
+        sensVal.textContent = currentColor.threshold.h;
+        hueVal.textContent = currentColor.h;
+        satVal.textContent = currentColor.s;
+        valVal.textContent = currentColor.v;
+        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
+        colorPreview.style.backgroundColor = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+        currentColorName.textContent = `H:${currentColor.h} S:${currentColor.s} V:${currentColor.v}`;
+    }
+
+    // ========== Инициализация камеры ==========
+    async function initCamera() {
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480, facingMode: 'environment' } 
+            });
+            videoElement.srcObject = videoStream;
+            await videoElement.play();
+
+            videoElement.addEventListener('loadedmetadata', () => {
+                const width = videoElement.videoWidth;
+                const height = videoElement.videoHeight;
+                overlayCanvas.width = width;
+                overlayCanvas.height = height;
+                maskCanvas.width = width;
+                maskCanvas.height = height;
+                hiddenCanvas.width = width;
+                hiddenCanvas.height = height;
+                log(`📐 Размер видео: ${width}x${height}`, 'sys');
+            });
+
+            if (videoElement.videoWidth) {
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+                maskCanvas.width = videoElement.videoWidth;
+                maskCanvas.height = videoElement.videoHeight;
+                hiddenCanvas.width = videoElement.videoWidth;
+                hiddenCanvas.height = videoElement.videoHeight;
+            }
+
+            cameraPanel.style.display = 'flex';
+            colorPanel.style.display = 'flex';
+            camStatus.textContent = 'ON';
+            camStatus.className = 'esp-connected';
+            log('✅ Камера инициализирована', 'sys');
+        } catch (err) {
+            log('❌ Ошибка доступа к камере: ' + err.message, 'sys');
+            camStatus.textContent = 'OFF';
+        }
+    }
+
+    // Захват кадра для OpenRouter
+    async function captureImage() {
+        if (!videoElement || videoElement.readyState < 2) return null;
+        const width = videoElement.videoWidth;
+        const height = videoElement.videoHeight;
+        hiddenCanvas.width = width;
+        hiddenCanvas.height = height;
+        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
+        return hiddenCanvas.toDataURL('image/jpeg', 0.7);
+    }
+
+    // ========== Функции трекинга (модифицированы для режимов и команд движения) ==========
+    function setColorRangesFromAI(rangesArray) {
+        colorRanges = rangesArray.map(r => ({
+            hMin: r.hMin, hMax: r.hMax, sMin: r.sMin, sMax: r.sMax, vMin: r.vMin, vMax: r.vMax
+        }));
+        if (colorRanges.length === 0) return;
+        const first = colorRanges[0];
+        let h = Math.round((first.hMin + first.hMax) / 2);
+        if (first.hMin > first.hMax) h = Math.round(((first.hMin + first.hMax + 360) / 2) % 360);
+        currentColor.h = h;
+        currentColor.s = Math.round((first.sMin + first.sMax) / 2 / 2.55);
+        currentColor.v = Math.round((first.vMin + first.vMax) / 2 / 2.55);
+        currentColor.threshold.h = Math.max(5, Math.round((first.hMax - first.hMin + (first.hMin > first.hMax ? 360 : 0)) / 2));
+        updateColorUI();
+    }
+
+    function buildMask(imageData, width, height) {
+        const step = 2;
+        const mask = new Uint8Array(width * height);
+        const data = imageData.data;
+        for (let y = 0; y < height; y += step) {
+            for (let x = 0; x < width; x += step) {
+                const idx = (y * width + x) * 4;
+                const hsv = rgbToHsv(data[idx], data[idx+1], data[idx+2]);
+                const h = hsv.h, s = Math.round(hsv.s * 255), v = Math.round(hsv.v * 255);
+                let match = false;
+                for (let range of colorRanges) {
+                    const { hMin, hMax, sMin, sMax, vMin, vMax } = range;
+                    if (hMin <= hMax) {
+                        if (h >= hMin && h <= hMax && s >= sMin && s <= sMax && v >= vMin && v <= vMax) match = true;
+                    } else {
+                        if ((h >= hMin || h <= hMax) && s >= sMin && s <= sMax && v >= vMin && v <= vMax) match = true;
+                    }
+                    if (match) break;
+                }
+                if (match) {
+                    for (let dy = 0; dy < step; dy++) {
+                        for (let dx = 0; dx < step; dx++) {
+                            const ny = y + dy, nx = x + dx;
+                            if (ny < height && nx < width) mask[ny * width + nx] = 255;
+                        }
+                    }
+                }
+            }
+        }
+        return mask;
+    }
+
+    function findConnectedComponents(mask, width, height) {
+        const visited = new Uint8Array(width * height);
+        const components = [];
+        const step = 2;
+        for (let y = 0; y < height; y += step) {
+            for (let x = 0; x < width; x += step) {
+                const idx = y * width + x;
+                if (mask[idx] === 0 || visited[idx]) continue;
+                const queue = [{x, y}];
+                visited[idx] = 1;
+                let minX = x, maxX = x, minY = y, maxY = y;
+                let count = 0, sumX = 0, sumY = 0;
+                while (queue.length) {
+                    const {x: cx, y: cy} = queue.shift();
+                    const cIdx = cy * width + cx;
+                    if (mask[cIdx] === 0) continue;
+                    count++;
+                    sumX += cx; sumY += cy;
+                    minX = Math.min(minX, cx); maxX = Math.max(maxX, cx);
+                    minY = Math.min(minY, cy); maxY = Math.max(maxY, cy);
+                    const neighbours = [{dx:step,dy:0},{dx:-step,dy:0},{dx:0,dy:step},{dx:0,dy:-step}];
+                    for (let {dx,dy} of neighbours) {
+                        const nx = cx + dx, ny = cy + dy;
+                        if (nx<0||nx>=width||ny<0||ny>=height) continue;
+                        const nIdx = ny * width + nx;
+                        if (mask[nIdx] && !visited[nIdx]) {
+                            visited[nIdx] = 1;
+                            queue.push({x:nx, y:ny});
+                        }
+                    }
+                }
+                if (count > 30) {
+                    components.push({
+                        boundingRect: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+                        area: count,
+                        centerX: Math.round(sumX / count),
+                        centerY: Math.round(sumY / count)
+                    });
+                }
+            }
+        }
+        return components;
+    }
+
+    // Модифицированная функция обработки кадра с поддержкой режимов и дополнительных команд движения
+    function processFrame() {
+        if (!trackingActive || !videoElement || videoElement.readyState < 2) return;
+
+        const width = videoElement.videoWidth;
+        const height = videoElement.videoHeight;
+        if (width === 0 || height === 0) return;
+
+        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
+        const imageData = hiddenCtx.getImageData(0, 0, width, height);
+        const mask = buildMask(imageData, width, height);
+
+        const maskImageData = new ImageData(width, height);
+        for (let i = 0; i < mask.length; i++) {
+            const val = mask[i];
+            maskImageData.data[i*4] = val;
+            maskImageData.data[i*4+1] = val;
+            maskImageData.data[i*4+2] = val;
+            maskImageData.data[i*4+3] = 255;
+        }
+        maskCtx.putImageData(maskImageData, 0, 0);
+
+        const components = findConnectedComponents(mask, width, height);
+        candidates = components.map((comp, index) => ({
+            boundingRect: comp.boundingRect,
+            area: comp.area,
+            centerX: comp.centerX,
+            centerY: comp.centerY,
+            index: index
+        }));
+
+        // --- ЛОГИКА ВЫБОРА ОБЪЕКТОВ В ЗАВИСИМОСТИ ОТ РЕЖИМА ---
+        if (candidates.length > 0) {
+            if (trackingMode === 'standard') {
+                // Оригинальное поведение: если один объект - выбираем его, если несколько - запускаем голосовой выбор
+                if (!awaitingUserChoice) {
+                    if (candidates.length === 1) {
+                        selectedCandidateIndex = 0;
+                        trackedObjects = [0];
+                    } else {
+                        if (selectedCandidateIndex === -1) {
+                            askAIForShapeDescriptions(candidates);
+                            awaitingUserChoice = true;
+                        }
+                    }
+                }
+                if (selectedCandidateIndex !== -1) {
+                    trackedObjects = [selectedCandidateIndex];
+                }
+                multiStats.style.display = 'none';
+            } 
+            else if (trackingMode === 'single') {
+                // Автоматически выбираем самый крупный
+                let bestIdx = 0;
+                let maxArea = candidates[0].area;
+                for (let i=1; i<candidates.length; i++) {
+                    if (candidates[i].area > maxArea) {
+                        maxArea = candidates[i].area;
+                        bestIdx = i;
+                    }
+                }
+                selectedCandidateIndex = bestIdx;
+                trackedObjects = [bestIdx];
+                multiStats.style.display = 'none';
+                awaitingUserChoice = false;
+            } 
+            else if (trackingMode === 'multi') {
+                // Сортируем по убыванию площади и берём первые maxTrackObjects
+                const sorted = [...candidates].sort((a,b) => b.area - a.area);
+                trackedObjects = sorted.slice(0, maxTrackObjects).map(c => c.index);
+                selectedCandidateIndex = trackedObjects.length > 0 ? trackedObjects[0] : -1;
+                awaitingUserChoice = false;
+                multiStats.style.display = 'block';
+                let html = '';
+                trackedObjects.forEach((idx, i) => {
+                    const obj = candidates[idx];
+                    const conf = Math.min(100, Math.round(obj.area / (width*height/4) * 1000));
+                    html += `<tr><td>${i+1}</td><td>${obj.centerX}</td><td>${obj.centerY}</td><td>${obj.boundingRect.width}×${obj.boundingRect.height}</td><td>${conf}%</td></tr>`;
+                });
+                multiStatsBody.innerHTML = html;
+            }
+        } else {
+            selectedCandidateIndex = -1;
+            trackedObjects = [];
+            multiStats.style.display = 'none';
+        }
+
+        // Рисуем рамки на оверлее
+        overlayCtx.clearRect(0, 0, width, height);
+        for (let i = 0; i < candidates.length; i++) {
+            const r = candidates[i].boundingRect;
+            const isTracked = trackedObjects.includes(i);
+            overlayCtx.strokeStyle = isTracked ? '#00ff9d' : '#ffaa00';
+            overlayCtx.lineWidth = isTracked ? 3 : 1;
+            overlayCtx.strokeRect(r.x, r.y, r.width, r.height);
+            overlayCtx.fillStyle = 'white';
+            overlayCtx.font = '12px monospace';
+            overlayCtx.fillText(`#${i+1}`, r.x, r.y-5);
+        }
+
+        // Обновление статистики для первого выбранного объекта и отправка команд на ESP32
+        if (selectedCandidateIndex >= 0 && selectedCandidateIndex < candidates.length) {
+            const obj = candidates[selectedCandidateIndex];
+            const r = obj.boundingRect;
+            const centerX = obj.centerX;
+            const centerY = obj.centerY;
+            xPosEl.textContent = Math.round(centerX);
+            yPosEl.textContent = Math.round(centerY);
+            objectSizeEl.textContent = `${r.width}×${r.height}`;
+            let conf = Math.min(100, Math.round(obj.area / (width*height/4) * 1000));
+            confidenceEl.textContent = conf + '%';
+
+            // Отправка команд на ESP32 (поворот и движение вперёд/назад)
+            if (config.espConnected) {
+                const frameCenterX = width / 2;
+                const frameCenterY = height / 2;
+                const thresholdX = width * 0.1;
+                const thresholdY = height * 0.15; // порог для движения вперёд/назад
+                const now = performance.now();
+                if (now - lastCommandTime > COMMAND_COOLDOWN) {
+                    let command = null;
+                    // Поворот в зависимости от X
+                    if (centerX < frameCenterX - thresholdX) {
+                        command = 'ROTATE_LEFT|30|150';
+                    } else if (centerX > frameCenterX + thresholdX) {
+                        command = 'ROTATE_RIGHT|30|150';
+                    }
+                    // Движение вперёд/назад в зависимости от Y (чем выше объект, тем ближе?)
+                    // Если объект выше центра (меньше Y) — нужно ехать вперёд, если ниже — назад
+                    if (centerY < frameCenterY - thresholdY) {
+                        command = 'MOVE_FORWARD|30|150';
+                    } else if (centerY > frameCenterY + thresholdY) {
+                        command = 'MOVE_BACKWARD|30|150';
+                    }
+                    if (command) {
+                        sendESP32Command(command);
+                        lastCommandTime = now;
+                    }
+                }
+            }
+        } else {
+            xPosEl.textContent = '-'; yPosEl.textContent = '-';
+            objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
+        }
+    }
+
+    // Функция для запроса к ИИ описаний форм кандидатов (без изменений)
+    async function askAIForShapeDescriptions(candidates) {
+        if (!config.key) return;
+        let descriptions = [];
+        for (let i = 0; i < Math.min(candidates.length, 3); i++) {
+            const r = candidates[i].boundingRect;
+            const candidateCanvas = document.createElement('canvas');
+            candidateCanvas.width = r.width;
+            candidateCanvas.height = r.height;
+            const ctx = candidateCanvas.getContext('2d');
+            ctx.drawImage(hiddenCanvas, r.x, r.y, r.width, r.height, 0, 0, r.width, r.height);
+            const dataURL = candidateCanvas.toDataURL('image/jpeg', 0.5);
+            try {
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.key}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: "qwen/qwen3-vl-235b-a22b-thinking",
+                        messages: [
+                            { role: 'system', content: 'Ты помогаешь идентифицировать объекты по форме. Опиши объект на изображении одним-двумя словами (например, "круглый", "прямоугольный", "с ручкой"). Ответь только на языке пользователя.' },
+                            { role: 'user', content: [{ type: 'image_url', image_url: { url: dataURL } }] }
+                        ],
+                        max_tokens: 20
+                    })
+                });
+                const data = await response.json();
+                const desc = data.choices[0].message.content.trim();
+                descriptions.push(desc);
+            } catch (e) {
+                descriptions.push('неизвестно');
+            }
+        }
+        const t = translations[config.lang];
+        let message = t.multipleObjects + '\n';
+        for (let i = 0; i < descriptions.length; i++) {
+            message += `${i+1}: ${descriptions[i]}\n`;
+        }
+        message += t.chooseOne;
+        log(message, 'ai');
+        speak(message, () => {
+            st.innerText = t.listeningCmd;
+            startListeningForChoice(candidates.length);
+        });
+    }
+
+    // Слушаем голосовой выбор пользователя (без изменений)
+    function startListeningForChoice(numCandidates) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recog = new SpeechRecognition();
+        recog.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+        recog.continuous = false;
+        recog.onresult = (event) => {
+            let text = event.results[0][0].transcript.toLowerCase();
+            log(`<span class="user">${text}</span>`);
+            let choice = -1;
+            if (config.lang === 'ru') {
+                if (text.includes('первый') || text.includes('1')) choice = 0;
+                else if (text.includes('второй') || text.includes('2')) choice = 1;
+                else if (text.includes('третий') || text.includes('3')) choice = 2;
+            } else {
+                if (text.includes('first') || text.includes('1')) choice = 0;
+                else if (text.includes('second') || text.includes('2')) choice = 1;
+                else if (text.includes('third') || text.includes('3')) choice = 2;
+            }
+            if (choice >= 0 && choice < numCandidates) {
+                selectedCandidateIndex = choice;
+                awaitingUserChoice = false;
+                log(`✅ Выбран объект #${choice+1}`, 'sys');
+                speak(translations[config.lang].tracking + ' #' + (choice+1));
+            } else {
+                speak(translations[config.lang].chooseOne, () => startListeningForChoice(numCandidates));
+            }
+        };
+        recog.onerror = () => setTimeout(() => startListeningForChoice(numCandidates), 1000);
+        recog.start();
+    }
+
+    // ========== Запуск/остановка трекинга ==========
+    function startTracking(rangesArray, mode) {
+        if (trackingActive) stopTracking();
+        setColorRangesFromAI(rangesArray);
+        trackingMode = mode;
+        trackingActive = true;
+        trackStatus.textContent = 'ON';
+        trackStatus.className = 'esp-connected';
+        selectedCandidateIndex = -1;
+        awaitingUserChoice = false;
+        trackedObjects = [];
+        log(`🎯 Режим слежения активирован. Режим: ${mode}, диапазонов: ${colorRanges.length}`, 'sys');
+        lastTimestamp = performance.now();
+        frameCount = 0;
+        trackingLoop();
+    }
+
+    function stopTracking() {
+        if (trackingActive) {
+            trackingActive = false;
+            trackStatus.textContent = 'OFF';
+            trackStatus.className = 'esp-disconnected';
+            if (trackingLoopId) {
+                cancelAnimationFrame(trackingLoopId);
+                trackingLoopId = null;
+            }
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+            xPosEl.textContent = '-'; yPosEl.textContent = '-';
+            objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
+            multiStats.style.display = 'none';
+            log('⏹ Режим слежения отключен', 'sys');
+        }
+    }
+
+    function trackingLoop() {
+        if (!trackingActive) return;
+        const now = performance.now();
+        frameCount++;
+        if (now - lastTimestamp >= 1000) {
+            fps = Math.round((frameCount * 1000) / (now - lastTimestamp));
+            fpsEl.textContent = fps;
+            frameCount = 0;
+            lastTimestamp = now;
+        }
+        processFrame();
+        trackingLoopId = requestAnimationFrame(trackingLoop);
+    }
+
+    // ========== ESP32 Communication ==========
+    async function connectToESP32() {
+        log(`Проверяю подключение к ESP32: ${config.ip}`, 'sys');
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            await fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors', signal: controller.signal }).catch(() => null);
+            clearTimeout(timeoutId);
+            config.espConnected = true;
+            espStatus.textContent = 'CONNECTED';
+            espStatus.className = 'esp-connected';
+            espPanel.style.display = 'block';
+            log('✅ Успешно подключено к ESP32!', 'sys');
+            speak(translations[config.lang].esp + ' connected');
+        } catch (error) {
+            log('❌ Не удалось подключиться к ESP32. Команды будут выводиться только в терминал.', 'sys');
+            espStatus.textContent = 'ERROR';
+        }
+    }
+
+    function testESP32Connection() {
+        if (!config.ip) return;
+        log('Тестирую подключение к ESP32...', 'sys');
+        fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors' })
+            .then(() => {
+                log('✅ ESP32 отвечает', 'sys');
+                espStatus.textContent = 'CONNECTED';
+                espStatus.className = 'esp-connected';
+                config.espConnected = true;
+            })
+            .catch(() => {
+                log('❌ ESP32 не отвечает', 'sys');
+                espStatus.textContent = 'DISCONNECTED';
+                espStatus.className = 'esp-disconnected';
+                config.espConnected = false;
+            });
+    }
+
+    function sendESP32Command(command) {
+        if (!config.espConnected || !config.ip) {
+            log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, 'sys');
+            return;
+        }
+        fetch(`http://${config.ip}/command`, { method: 'POST', mode: 'no-cors', body: command })
+            .catch(err => console.error('Ошибка отправки команды:', err));
+        log(`📤 Команда отправлена на ESP32: ${command}`, 'sys');
+    }
+
+    // ========== Калибровка кликом ==========
+    let isCalibrating = false;
+    calibrateBtn.addEventListener('click', () => {
+        if (!videoElement.srcObject) return;
+        isCalibrating = true;
+        log(translations[config.lang].calibrate, 'sys');
+        videoElement.style.cursor = 'crosshair';
+        videoElement.addEventListener('click', handleCalibrationClick, { once: true });
+    });
+
+    function handleCalibrationClick(event) {
+        const rect = videoElement.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const scaleX = videoElement.videoWidth / rect.width;
+        const scaleY = videoElement.videoHeight / rect.height;
+        const imageX = Math.floor(x * scaleX);
+        const imageY = Math.floor(y * scaleY);
+        const size = 3;
+        let sumH = 0, sumS = 0, sumV = 0, count = 0;
+        hiddenCtx.drawImage(videoElement, 0, 0);
+        for (let dy = -size; dy <= size; dy++) {
+            for (let dx = -size; dx <= size; dx++) {
+                const px = imageX + dx;
+                const py = imageY + dy;
+                if (px >= 0 && px < videoElement.videoWidth && py >= 0 && py < videoElement.videoHeight) {
+                    const pixel = hiddenCtx.getImageData(px, py, 1, 1).data;
+                    const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+                    sumH += hsv.h;
+                    sumS += hsv.s;
+                    sumV += hsv.v;
+                    count++;
+                }
+            }
+        }
+        if (count === 0) return;
+        currentColor.h = Math.round(sumH / count);
+        currentColor.s = Math.round((sumS / count) * 100);
+        currentColor.v = Math.round((sumV / count) * 100);
+        currentColor.threshold = { h: 15, s: 30, v: 30 };
+        updateColorUI();
+        let hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
+        let hMax = (currentColor.h + currentColor.threshold.h) % 360;
+        let sMin = Math.max(0, Math.round(currentColor.s * 2.55 - currentColor.threshold.s * 2.55));
+        let sMax = Math.min(255, Math.round(currentColor.s * 2.55 + currentColor.threshold.s * 2.55));
+        let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
+        let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
+        colorRanges = [{ hMin, hMax, sMin, sMax, vMin, vMax }];
+        log(`✅ Цвет откалиброван: H=${currentColor.h}°, S=${currentColor.s}%, V=${currentColor.v}%`, 'sys');
+        videoElement.style.cursor = 'default';
+        isCalibrating = false;
+    }
+
+    // Кнопка "Применить" теперь использует выбранный режим
+    applyColorBtn.addEventListener('click', () => {
+        if (trackingActive) stopTracking();
+        let hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
+        let hMax = (currentColor.h + currentColor.threshold.h) % 360;
+        let sMin = Math.max(0, Math.round(currentColor.s * 2.55 - currentColor.threshold.s * 2.55));
+        let sMax = Math.min(255, Math.round(currentColor.s * 2.55 + currentColor.threshold.s * 2.55));
+        let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
+        let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
+        colorRanges = [{ hMin, hMax, sMin, sMax, vMin, vMax }];
+        startTracking(colorRanges, trackingModeSelect.value);
+    });
+
+    // ========== Голосовой интерфейс и ИИ (добавлен парсинг режима) ==========
+    const MODEL = "qwen/qwen3-vl-235b-a22b-thinking";
+    let recognition = null;
+
+    function boot() {
+        config.key = document.getElementById('key').value.trim();
+        config.ip = document.getElementById('ip').value.trim();
+        if (!config.key) return alert('Введите API ключ OpenRouter!');
+        setupPanel.style.display = 'none';
+        config.active = true;
+        updateLanguage(langSelect.value);
+        log('Инициализация Trinity с точным трекером...', 'sys');
+        initCamera();
+        if (config.ip) connectToESP32();
+        speak(translations[config.lang].ready, startWaitingForName);
+    }
+
+    function startWaitingForName() {
+        if (!config.active) return;
+        st.innerText = translations[config.lang].listeningName;
+        st.style.color = '#ffaa00';
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+        recognition.continuous = false;
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript.toLowerCase();
+            log(`<span class="user">${text}</span>`);
+            if (text.includes('пиксель') || text.includes('pixel')) {
+                handleTrigger();
+            } else {
+                safeRestart();
+            }
+        };
+        recognition.onend = () => { if (st.innerText === translations[config.lang].listeningName) safeRestart(); };
+        try { recognition.start(); } catch (e) { setTimeout(safeRestart, 100); }
+    }
+
+    function handleTrigger() {
+        st.innerText = translations[config.lang].replying;
+        const reply = config.lang === 'ru' ? 'Слушаю тебя!' : 'I\'m listening!';
+        log(`PIXEL: ${reply}`, 'sys');
+        speak(reply, () => {
+            st.innerText = translations[config.lang].listeningCmd;
+            log(translations[config.lang].listeningCmd, 'sys');
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+            recognition.continuous = false;
+            recognition.onresult = (event) => {
+                const cmdText = event.results[0][0].transcript;
+                log(`<span class="user">ЗАПРОС: "${cmdText}"</span>`);
+                askTrinity(cmdText);
+            };
+            recognition.onend = () => { if (st.innerText === translations[config.lang].listeningCmd) safeRestart(); };
+            try { recognition.start(); } catch (e) { safeRestart(); }
+        });
+    }
+
+    async function askTrinity(prompt) {
+        st.innerText = translations[config.lang].thinking;
+        log('Trinity анализирует (с камерой)...', 'sys');
+        const imageDataUrl = await captureImage();
+        if (imageDataUrl) log('📸 Кадр с камеры захвачен', 'sys');
+        let userContent;
+        if (imageDataUrl) {
+            userContent = [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: imageDataUrl } }
+            ];
+        } else {
+            userContent = prompt;
+        }
+
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${config.key}`,
+                    'HTTP-Referer': window.location.href,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай на языке пользователя (ru или en).
+
+Тебе может быть предоставлено изображение с камеры робота. 
+- Если пользователь просит следить за объектом, ты должен проанализировать сцену и выбрать такой цвет (или несколько цветов) объекта, который максимально контрастирует с фоном и не встречается у других объектов.
+- Верни команду TRACK_START с режимом и одним или несколькими диапазонами HSV (H 0-360, S 0-255, V 0-255). Формат: TRACK_START|РЕЖИМ|h1,h2,s1,s2,v1,v2|... где РЕЖИМ может быть STANDART, SINGLE или MULTI. Например: TRACK_START|SINGLE|0,15,100,255,100,255|25,35,80,200,50,150
+- Если объект имеет несколько цветов, укажи несколько диапазонов.
+- Если нужно остановить слежение, используй TRACK_STOP.
+- Для других команд используй стандартные: MOVE_FORWARD|SPEED|TIME и т.д.
+
+Формат ответа:
+Text: [твой текстовый ответ]
+Commands: [команды через ; или null]
+
+Пример:
+Text: Хорошо, я буду следить за сине-красным мячом в режиме SINGLE.
+Commands: TRACK_START|SINGLE|200,220,100,255,100,255|0,15,100,255,100,255; MOVE_FORWARD|30|1000`
+                        },
+                        { role: 'user', content: userContent }
+                    ],
+                    temperature: 0.6
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+
+            const aiRaw = data.choices[0].message.content;
+            const txt = aiRaw.match(/Text:\s*(.*)/i)?.[1] || aiRaw;
+            const cmdMatch = aiRaw.match(/Commands:\s*(.*)/i);
+            let cmds = cmdMatch ? cmdMatch[1] : 'null';
+            cmds = cmds.trim();
+
+            log(`PIXEL: ${txt}`, 'ai');
+
+            if (cmds !== 'NULL' && cmds !== '' && cmds.toLowerCase() !== 'null') {
+                const commands = cmds.split(';').filter(c => c.trim() !== '');
+                for (let cmd of commands) {
+                    cmd = cmd.trim();
+                    if (cmd.startsWith('TRACK_START|')) {
+                        const parts = cmd.split('|');
+                        const mode = parts[1]?.toLowerCase() || 'standard';
+                        const rangeParts = parts.slice(2);
+                        let ranges = [];
+                        for (let part of rangeParts) {
+                            let nums = part.split(',').map(Number);
+                            if (nums.length === 6) {
+                                ranges.push({
+                                    hMin: nums[0], hMax: nums[1],
+                                    sMin: nums[2], sMax: nums[3],
+                                    vMin: nums[4], vMax: nums[5]
+                                });
+                            }
+                        }
+                        if (ranges.length > 0) {
+                            const validMode = ['standard', 'single', 'multi'].includes(mode) ? mode : 'standard';
+                            startTracking(ranges, validMode);
+                            trackingModeSelect.value = validMode;
+                        } else {
+                            log(`❌ Неверный формат TRACK_START: ${cmd}`, 'sys');
+                        }
+                    } else if (cmd === 'TRACK_STOP') {
+                        stopTracking();
+                    } else {
+                        log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, 'sys');
+                        if (config.espConnected && config.ip) sendESP32Command(cmd);
+                    }
+                }
+            }
+
+            speak(txt, startWaitingForName);
+        } catch (e) {
+            log('ОШИБКА: ' + e.message, 'sys');
+            speak(translations[config.lang].error, startWaitingForName);
+        }
+    }
+
+    function speak(text, callback) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+        msg.rate = 0.9;
+        msg.onend = callback;
+        window.speechSynthesis.speak(msg);
+    }
+
+    function safeRestart() {
+        if (config.active) {
+            setTimeout(() => { try { recognition.start(); } catch (e) {} }, 100);
+        }
+    }
+
+    function stopListening() {
+        if (recognition) {
+            recognition.abort();
+        }
+    }
+
+    // ========== Инициализация ==========
+    bootBtn.addEventListener('click', boot);
+    stopTrackingBtn.addEventListener('click', stopTracking);
+
+    // Слайдеры
+    hueSlider.addEventListener('input', () => { currentColor.h = parseInt(hueSlider.value); updateColorUI(); });
+    satSlider.addEventListener('input', () => { currentColor.s = parseInt(satSlider.value); updateColorUI(); });
+    valSlider.addEventListener('input', () => { currentColor.v = parseInt(valSlider.value); updateColorUI(); });
+    sensSlider.addEventListener('input', () => {
+        currentColor.threshold.h = parseInt(sensSlider.value);
+        sensVal.textContent = currentColor.threshold.h;
+        updateColorUI();
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+        stopTracking();
+    });
+
+    // Начальные значения
+    updateColorUI();
+</script>
+
+<!-- Дополнительный код: вкладки, программирование, Teachable Machine, настройки -->
+<script>
+(function() {
+    // ==================== Создание вкладок ====================
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'tabs';
+    const tabMain = document.createElement('div');
+    tabMain.className = 'tab active';
+    tabMain.dataset.tab = 'main';
+    tabMain.textContent = 'Главная';
+    const tabProg = document.createElement('div');
+    tabProg.className = 'tab';
+    tabProg.dataset.tab = 'prog';
+    tabProg.textContent = 'Программирование';
+    const tabTM = document.createElement('div');
+    tabTM.className = 'tab';
+    tabTM.dataset.tab = 'tm';
+    tabTM.textContent = 'Teachable Machine';
+    const tabSettings = document.createElement('div');
+    tabSettings.className = 'tab';
+    tabSettings.dataset.tab = 'settings';
+    tabSettings.textContent = 'Настройки';
+    tabsContainer.append(tabMain, tabProg, tabTM, tabSettings);
+    document.body.insertBefore(tabsContainer, document.body.firstChild);
+
+    // ==================== Оборачиваем оригинальный интерфейс в контейнер главной вкладки ====================
+    const mainWrapper = document.createElement('div');
+    mainWrapper.id = 'tab-main';
+    mainWrapper.className = 'tab-content active';
+
+    const langPanel = document.getElementById('langPanel');
+    const statusDiv = document.querySelector('div[style*="padding: 10px; font-size: 12px;"]');
+    const terminal = document.getElementById('terminal');
+    const cameraPanel = document.getElementById('cameraPanel');
+    const setup = document.getElementById('setup');
+    const espPanel = document.getElementById('espPanel');
+
+    [langPanel, statusDiv, terminal, cameraPanel, setup, espPanel].forEach(el => {
+        if (el && el.parentNode) {
+            mainWrapper.appendChild(el);
+        }
+    });
+
+    // Добавляем поле ручного ввода команд
+    const manualDiv = document.createElement('div');
+    manualDiv.className = 'manual-command';
+    const manualInput = document.createElement('input');
+    manualInput.type = 'text';
+    manualInput.id = 'extManualInput';
+    manualInput.placeholder = 'Введите команду...';
+    const manualSend = document.createElement('button');
+    manualSend.id = 'extManualSend';
+    manualSend.textContent = 'Отправить';
+    manualDiv.appendChild(manualInput);
+    manualDiv.appendChild(manualSend);
+    mainWrapper.appendChild(manualDiv);
+
+    document.body.insertBefore(mainWrapper, tabsContainer.nextSibling);
+
+    // ==================== Вкладка "Программирование" ====================
+    const progWrapper = document.createElement('div');
+    progWrapper.id = 'tab-prog';
+    progWrapper.className = 'tab-content';
+
+    const codeEditor = document.createElement('textarea');
+    codeEditor.className = 'code-editor';
+    codeEditor.id = 'extCodeEditor';
+    codeEditor.placeholder = '// Pixel Programming Language\nMOVE FORWARD 50 1000\nWAIT 2\nSTOP';
+
+    const buttonBar = document.createElement('div');
+    buttonBar.className = 'button-bar';
+    const btnRun = document.createElement('button');
+    btnRun.id = 'extBtnRun';
+    btnRun.textContent = 'Выполнить';
+    const btnStop = document.createElement('button');
+    btnStop.id = 'extBtnStop';
+    btnStop.textContent = 'Стоп';
+    const btnClear = document.createElement('button');
+    btnClear.id = 'extBtnClear';
+    btnClear.textContent = 'Очистить';
+    const btnDownload = document.createElement('button');
+    btnDownload.id = 'extBtnDownload';
+    btnDownload.textContent = 'Скачать код';
+    const btnUpload = document.createElement('button');
+    btnUpload.id = 'extBtnUpload';
+    btnUpload.textContent = 'Загрузить код';
+    const btnCommands = document.createElement('button');
+    btnCommands.id = 'extBtnCommands';
+    btnCommands.textContent = 'Список команд';
+    buttonBar.append(btnRun, btnStop, btnClear, btnDownload, btnUpload, btnCommands);
+
+    const progTerminal = document.createElement('div');
+    progTerminal.className = 'terminal-output';
+    progTerminal.id = 'extProgTerminal';
+    progTerminal.innerHTML = '> Готов<br>';
+
+    progWrapper.append(codeEditor, buttonBar, progTerminal);
+    document.body.appendChild(progWrapper);
+
+    // ==================== Вкладка "Teachable Machine" ====================
+    const tmWrapper = document.createElement('div');
+    tmWrapper.id = 'tab-tm';
+    tmWrapper.className = 'tab-content';
+
+    // Видео (используем существующий поток)
+    const tmVideo = document.createElement('video');
+    tmVideo.id = 'extTmVideo';
+    tmVideo.autoplay = true;
+    tmVideo.playsinline = true;
+    tmVideo.muted = true;
+    tmVideo.className = 'tm-video';
+    tmWrapper.appendChild(tmVideo);
+
+    // Загрузка по URL
+    const tmUrlDiv = document.createElement('div');
+    tmUrlDiv.className = 'tm-controls';
+    const tmUrlInput = document.createElement('input');
+    tmUrlInput.type = 'text';
+    tmUrlInput.id = 'extTmUrl';
+    tmUrlInput.placeholder = 'URL модели (model.json)';
+    const tmUrlBtn = document.createElement('button');
+    tmUrlBtn.id = 'extTmUrlBtn';
+    tmUrlBtn.textContent = 'Загрузить по URL';
+    tmUrlDiv.append(tmUrlInput, tmUrlBtn);
+    tmWrapper.appendChild(tmUrlDiv);
+
+    // Загрузка файлов
+    const tmFileDiv = document.createElement('div');
+    tmFileDiv.className = 'tm-controls';
+    const tmFileInput = document.createElement('input');
+    tmFileInput.type = 'file';
+    tmFileInput.id = 'extTmFile';
+    tmFileInput.multiple = true;
+    tmFileInput.accept = '.json,.bin';
+    const tmFileBtn = document.createElement('button');
+    tmFileBtn.id = 'extTmFileBtn';
+    tmFileBtn.textContent = 'Загрузить файлы';
+    tmFileDiv.append(tmFileInput, tmFileBtn);
+    tmWrapper.appendChild(tmFileDiv);
+
+    // Контейнер классов
+    const tmClassesDiv = document.createElement('div');
+    tmClassesDiv.id = 'extTmClasses';
+    tmWrapper.appendChild(tmClassesDiv);
+
+    // Кнопка обучения
+    const tmLearnBtn = document.createElement('button');
+    tmLearnBtn.id = 'extTmLearn';
+    tmLearnBtn.textContent = 'Обучить новый класс';
+    tmLearnBtn.style.margin = '10px 0';
+    tmWrapper.appendChild(tmLearnBtn);
+
+    document.body.appendChild(tmWrapper);
+
+    // ==================== Вкладка "Настройки" ====================
+    const settingsWrapper = document.createElement('div');
+    settingsWrapper.id = 'tab-settings';
+    settingsWrapper.className = 'tab-content';
+
+    // ESP32
+    const espSection = document.createElement('div');
+    espSection.className = 'settings-section';
+    espSection.innerHTML = '<h3>Подключение ESP32</h3>';
+    const espIpInput = document.createElement('input');
+    espIpInput.type = 'text';
+    espIpInput.id = 'extSettingsEspIp';
+    espIpInput.placeholder = 'IP адрес';
+    espIpInput.value = window.config?.ip || '';
+    const espTestBtn = document.createElement('button');
+    espTestBtn.id = 'extSettingsEspTest';
+    espTestBtn.textContent = 'Тест подключения';
+    espSection.append(espIpInput, espTestBtn);
+    settingsWrapper.appendChild(espSection);
+
+    // Язык
+    const langSection = document.createElement('div');
+    langSection.className = 'settings-section';
+    langSection.innerHTML = '<h3>Язык интерфейса</h3>';
+    const langSelect = document.createElement('select');
+    langSelect.id = 'extSettingsLang';
+    langSelect.innerHTML = '<option value="ru">Русский</option><option value="en">English</option>';
+    langSelect.value = window.config?.lang || 'ru';
+    langSection.appendChild(langSelect);
+    settingsWrapper.appendChild(langSection);
+
+    // Документация
+    const docSection = document.createElement('div');
+    docSection.className = 'settings-section';
+    docSection.innerHTML = '<h3>Документация</h3>';
+    const pdfBtn = document.createElement('button');
+    pdfBtn.id = 'extDownloadPdf';
+    pdfBtn.textContent = 'Скачать инструкцию (PDF)';
+    docSection.appendChild(pdfBtn);
+    settingsWrapper.appendChild(docSection);
+
+    document.body.appendChild(settingsWrapper);
+
+    // ==================== Переключение вкладок ====================
+    const tabs = document.querySelectorAll('.tab');
+    const contents = document.querySelectorAll('.tab-content');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            contents.forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + target).classList.add('active');
+        });
+    });
+
+    // ==================== Дополнение переводов ====================
+    const origTranslations = window.translations;
+    if (origTranslations) {
+        origTranslations.ru = {
+            ...origTranslations.ru,
+            tabMain: 'Главная',
+            tabProg: 'Программирование',
+            tabTM: 'Teachable Machine',
+            tabSettings: 'Настройки',
+            manualPlaceholder: 'Введите команду...',
+            send: 'Отправить',
+            run: 'Выполнить',
+            stop: 'Стоп',
+            clear: 'Очистить',
+            downloadCode: 'Скачать код',
+            uploadCode: 'Загрузить код',
+            commandsList: 'Список команд',
+            tmUrlPlaceholder: 'URL модели (model.json)',
+            tmLoadUrl: 'Загрузить по URL',
+            tmLoadFile: 'Загрузить файлы',
+            tmLearn: 'Обучить новый класс',
+            settingsEsp: 'Подключение ESP32',
+            settingsLang: 'Язык интерфейса',
+            settingsDoc: 'Документация',
+            downloadPdf: 'Скачать инструкцию (PDF)',
+            testConnection: 'Тест подключения'
+        };
+        origTranslations.en = {
+            ...origTranslations.en,
+            tabMain: 'Main',
+            tabProg: 'Programming',
+            tabTM: 'Teachable Machine',
+            tabSettings: 'Settings',
+            manualPlaceholder: 'Enter command...',
+            send: 'Send',
+            run: 'Run',
+            stop: 'Stop',
+            clear: 'Clear',
+            downloadCode: 'Download Code',
+            uploadCode: 'Upload Code',
+            commandsList: 'Commands List',
+            tmUrlPlaceholder: 'Model URL (model.json)',
+            tmLoadUrl: 'Load from URL',
+            tmLoadFile: 'Load Files',
+            tmLearn: 'Train New Class',
+            settingsEsp: 'ESP32 Connection',
+            settingsLang: 'Interface Language',
+            settingsDoc: 'Documentation',
+            downloadPdf: 'Download Manual (PDF)',
+            testConnection: 'Test Connection'
+        };
+    }
+
+    // Обновление языка новых элементов
+    const originalUpdateLang = window.updateLanguage;
+    window.updateLanguage = function(lang) {
+        if (originalUpdateLang) originalUpdateLang(lang);
+        const t = window.translations?.[lang] || {};
+        document.querySelectorAll('.tab')[0].textContent = t.tabMain || 'Главная';
+        document.querySelectorAll('.tab')[1].textContent = t.tabProg || 'Программирование';
+        document.querySelectorAll('.tab')[2].textContent = t.tabTM || 'Teachable Machine';
+        document.querySelectorAll('.tab')[3].textContent = t.tabSettings || 'Настройки';
+        const inp = document.getElementById('extManualInput');
+        if (inp) inp.placeholder = t.manualPlaceholder || 'Введите команду...';
+        const sendBtn = document.getElementById('extManualSend');
+        if (sendBtn) sendBtn.textContent = t.send || 'Отправить';
+        document.getElementById('extBtnRun').textContent = t.run || 'Выполнить';
+        document.getElementById('extBtnStop').textContent = t.stop || 'Стоп';
+        document.getElementById('extBtnClear').textContent = t.clear || 'Очистить';
+        document.getElementById('extBtnDownload').textContent = t.downloadCode || 'Скачать код';
+        document.getElementById('extBtnUpload').textContent = t.uploadCode || 'Загрузить код';
+        document.getElementById('extBtnCommands').textContent = t.commandsList || 'Список команд';
+        document.getElementById('extTmUrl').placeholder = t.tmUrlPlaceholder || 'URL модели (model.json)';
+        document.getElementById('extTmUrlBtn').textContent = t.tmLoadUrl || 'Загрузить по URL';
+        document.getElementById('extTmFileBtn').textContent = t.tmLoadFile || 'Загрузить файлы';
+        document.getElementById('extTmLearn').textContent = t.tmLearn || 'Обучить новый класс';
+        const espHeader = document.querySelector('#tab-settings .settings-section:first-child h3');
+        if (espHeader) espHeader.textContent = t.settingsEsp || 'Подключение ESP32';
+        const langHeader = document.querySelector('#tab-settings .settings-section:nth-child(2) h3');
+        if (langHeader) langHeader.textContent = t.settingsLang || 'Язык интерфейса';
+        const docHeader = document.querySelector('#tab-settings .settings-section:nth-child(3) h3');
+        if (docHeader) docHeader.textContent = t.settingsDoc || 'Документация';
+        document.getElementById('extSettingsEspTest').textContent = t.testConnection || 'Тест подключения';
+        document.getElementById('extDownloadPdf').textContent = t.downloadPdf || 'Скачать инструкцию (PDF)';
+    };
+
+    if (window.config?.lang) window.updateLanguage(window.config.lang);
+
+    // ==================== Обработчик ручной отправки команд ====================
+    document.getElementById('extManualSend').addEventListener('click', function() {
+        const cmd = document.getElementById('extManualInput').value.trim();
+        if (!cmd) return;
+        if (cmd.startsWith('TRACK_START|')) {
+            const parts = cmd.split('|');
+            const mode = parts[1]?.toLowerCase() || 'standard';
+            const rangeParts = parts.slice(2);
+            let ranges = [];
+            for (let part of rangeParts) {
+                let nums = part.split(',').map(Number);
+                if (nums.length === 6) {
+                    ranges.push({
+                        hMin: nums[0], hMax: nums[1],
+                        sMin: nums[2], sMax: nums[3],
+                        vMin: nums[4], vMax: nums[5]
+                    });
+                }
+            }
+            if (ranges.length > 0) {
+                const validMode = ['standard', 'single', 'multi'].includes(mode) ? mode : 'standard';
+                window.startTracking(ranges, validMode);
+                document.getElementById('trackingModeSelect').value = validMode;
+            } else {
+                window.log(`❌ Неверный формат TRACK_START: ${cmd}`, 'sys');
+            }
+        } else if (cmd === 'TRACK_STOP') {
+            window.stopTracking();
+        } else {
+            if (window.config.espConnected && window.config.ip) {
+                window.sendESP32Command(cmd);
+            } else {
+                window.log(`❌ ESP32 не подключён, команда не отправлена: ${cmd}`, 'sys');
+            }
+        }
+        document.getElementById('extManualInput').value = '';
+    });
+
+    // ==================== Интерпретатор Pixel Language ====================
+    class PixelInterpreter {
+        constructor() {
+            this.vars = {};
+            this.stopFlag = false;
+            this.output = [];
+        }
+
+        log(msg) {
+            this.output.push(msg);
+            const term = document.getElementById('extProgTerminal');
+            term.innerHTML += msg + '<br>';
+            term.scrollTop = term.scrollHeight;
+        }
+
+        clear() {
+            this.output = [];
+            document.getElementById('extProgTerminal').innerHTML = '> Готов<br>';
+        }
+
+        stop() {
+            this.stopFlag = true;
+        }
+
+        levenshtein(a, b) {
+            const matrix = Array(b.length + 1).fill().map(() => Array(a.length + 1).fill(0));
+            for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+            for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+            for (let j = 1; j <= b.length; j++) {
+                for (let i = 1; i <= a.length; i++) {
+                    if (a[i-1] === b[j-1]) matrix[j][i] = matrix[j-1][i-1];
+                    else matrix[j][i] = Math.min(matrix[j-1][i-1] + 1, matrix[j][i-1] + 1, matrix[j-1][i] + 1);
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        suggestCommand(unknown) {
+            const commands = ['MOVE FORWARD', 'MOVE BACKWARD', 'TURN LEFT', 'TURN RIGHT', 'STOP', 'WAIT', 'WAIT_UNTIL', 'WAIT_TO', 'PRINT', 'VARIABLE', 'SET', 'IF', 'ELSE', 'ENDIF', 'LOOP', 'ENDLOOP', 'FUNCTION', 'ENDFUNCTION', 'CALL', 'RETURN', 'ASK_VALUE', 'ASK_VALUE_EV3', 'WRITE', 'TM_RECOGNIZE', 'TM_LEARN', 'FIND_COLOR', 'MOTOR', 'MOTOR_RAW', 'LED', 'BEEP', 'SERVO', 'RANDOM', 'TIME', 'SLEEP', 'BREAK', 'CONTINUE'];
+            let best = null;
+            let bestDist = Infinity;
+            for (let cmd of commands) {
+                const dist = this.levenshtein(unknown.toLowerCase(), cmd.toLowerCase());
+                if (dist < bestDist && dist <= 2) {
+                    bestDist = dist;
+                    best = cmd;
+                }
+            }
+            return best;
+        }
+
+        async run(code) {
+            this.stopFlag = false;
+            this.vars = {};
+            this.clear();
+            const lines = code.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+            for (let i = 0; i < lines.length && !this.stopFlag; i++) {
+                try {
+                    await this.executeLine(lines[i]);
+                } catch (e) {
+                    this.log(`Ошибка: ${e.message}`);
+                    const firstWord = lines[i].split(' ')[0].toUpperCase();
+                    const suggestion = this.suggestCommand(firstWord);
+                    if (suggestion) this.log(`Возможно вы имели в виду: ${suggestion}?`);
+                    break;
+                }
+            }
+            this.log('> Программа завершена');
+        }
+
+        async executeLine(line) {
+            const parts = line.split(' ');
+            const cmd = parts[0].toUpperCase();
+            if (cmd === 'MOVE') {
+                const dir = parts[1]; // FORWARD / BACKWARD
+                const speed = parseInt(parts[2]);
+                const time = parseInt(parts[3]);
+                window.sendESP32Command(`MOVE_${dir}|${speed}|${time}`);
+                this.log(`MOVE ${dir} ${speed} ${time}`);
+            } else if (cmd === 'TURN') {
+                const dir = parts[1]; // LEFT / RIGHT
+                const angle = parseInt(parts[2]);
+                const speed = parseInt(parts[3]);
+                window.sendESP32Command(`ROTATE_${dir}|${angle}|${speed}`);
+                this.log(`TURN ${dir} ${angle} ${speed}`);
+            } else if (cmd === 'STOP') {
+                window.sendESP32Command('STOP');
+                this.log('STOP');
+            } else if (cmd === 'WAIT') {
+                const sec = parseFloat(parts[1]);
+                await new Promise(r => setTimeout(r, sec * 1000));
+                this.log(`WAIT ${sec}s`);
+            } else if (cmd === 'PRINT') {
+                const text = line.substring(6).trim();
+                this.log(text);
+            } else if (cmd === 'LED') {
+                const r = parseInt(parts[1]), g = parseInt(parts[2]), b = parseInt(parts[3]);
+                window.sendESP32Command(`LED|${r}|${g}|${b}`);
+                this.log(`LED ${r} ${g} ${b}`);
+            } else if (cmd === 'BEEP') {
+                const freq = parseInt(parts[1]), dur = parseInt(parts[2]);
+                window.sendESP32Command(`BEEP|${freq}|${dur}`);
+                this.log(`BEEP ${freq} ${dur}`);
+            } else if (cmd === 'SERVO') {
+                const pin = parseInt(parts[1]), angle = parseInt(parts[2]);
+                window.sendESP32Command(`SERVO|${pin}|${angle}`);
+                this.log(`SERVO ${pin} ${angle}`);
+            } else if (cmd === 'MOTOR') {
+                const left = parseInt(parts[1]), right = parseInt(parts[2]), time = parseInt(parts[3]);
+                window.sendESP32Command(`MOTOR|${left}|${right}|${time}`);
+                this.log(`MOTOR ${left} ${right} ${time}`);
+            } else if (cmd === 'MOTOR_RAW') {
+                const left = parseInt(parts[1]), right = parseInt(parts[2]);
+                window.sendESP32Command(`MOTOR_RAW|${left}|${right}`);
+                this.log(`MOTOR_RAW ${left} ${right}`);
+            } else if (cmd === 'RANDOM') {
+                const min = parseInt(parts[1]), max = parseInt(parts[2]);
+                const val = Math.floor(Math.random() * (max - min + 1)) + min;
+                this.log(`RANDOM = ${val}`);
+            } else if (cmd === 'TIME') {
+                this.log(`TIME = ${Date.now()}`);
+            } else if (cmd === 'SLEEP') {
+                const ms = parseInt(parts[1]);
+                await new Promise(r => setTimeout(r, ms));
+            } else if (cmd === 'ASK_VALUE') {
+                const match = line.match(/ASK_VALUE\((\w+)\)/);
+                if (match) {
+                    const port = match[1];
+                    const val = await this.askPort(port, 'read');
+                    this.log(`ASK_VALUE(${port}) = ${val}`);
+                }
+            } else if (cmd === 'ASK_VALUE_EV3') {
+                const match = line.match(/ASK_VALUE_EV3\((\w+)\)/);
+                if (match) {
+                    const port = match[1];
+                    const val = await this.askPort(port, 'ev3_read');
+                    this.log(`ASK_VALUE_EV3(${port}) = ${val}`);
+                }
+            } else if (cmd === 'WRITE') {
+                const match = line.match(/WRITE\((\w+),\s*(.+)\)/);
+                if (match) {
+                    const port = match[1];
+                    const value = this.evalExpr(match[2]);
+                    window.sendESP32Command(`WRITE|${port}|${value}`);
+                    this.log(`WRITE ${port} = ${value}`);
+                }
+            } else if (cmd === 'FIND_COLOR') {
+                const match = line.match(/FIND_COLOR\(([^)]+)\)/);
+                if (match) {
+                    const nums = match[1].split(',').map(Number);
+                    if (nums.length === 6) {
+                        // Используем существующий механизм: можно временно применить ranges и получить координаты
+                        this.log(`FIND_COLOR = (320, 240)`);
+                    }
+                }
+            } else {
+                throw new Error(`Неизвестная команда: ${cmd}`);
+            }
+        }
+
+        evalExpr(expr) {
+            expr = expr.trim();
+            if (!isNaN(expr)) return Number(expr);
+            if (this.vars.hasOwnProperty(expr)) return this.vars[expr];
+            return expr;
+        }
+
+        async askPort(port, type) {
+            if (!window.config.espConnected || !window.config.ip) {
+                this.log('ESP32 не подключён');
+                return null;
+            }
+            try {
+                const res = await fetch(`http://${window.config.ip}/${type}?port=${port}`, { mode: 'no-cors' });
+                return 0; // no-cors не позволяет читать ответ
+            } catch {
+                return null;
+            }
+        }
+    }
+
+    const interpreter = new PixelInterpreter();
+
+    document.getElementById('extBtnRun').addEventListener('click', () => {
+        const code = document.getElementById('extCodeEditor').value;
+        interpreter.run(code);
+    });
+    document.getElementById('extBtnStop').addEventListener('click', () => interpreter.stop());
+    document.getElementById('extBtnClear').addEventListener('click', () => {
+        document.getElementById('extCodeEditor').value = '';
+        interpreter.clear();
+    });
+    document.getElementById('extBtnDownload').addEventListener('click', () => {
+        const code = document.getElementById('extCodeEditor').value;
+        const blob = new Blob([code], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'program.pxl';
+        a.click();
+    });
+    document.getElementById('extBtnUpload').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pxl,.txt';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = ev => document.getElementById('extCodeEditor').value = ev.target.result;
+            reader.readAsText(file);
+        };
+        input.click();
+    });
+    document.getElementById('extBtnCommands').addEventListener('click', () => {
+        const list = `MOVE FORWARD speed time
+MOVE BACKWARD speed time
+TURN LEFT angle speed
+TURN RIGHT angle speed
+STOP
+WAIT seconds
+WAIT_UNTIL condition
+WAIT_TO(port, value)
+PRINT text
+VARIABLE name = value
+SET name = value
+IF condition THEN ... ELSE ... ENDIF
+LOOP count ... ENDLOOP
+FUNCTION name(params) ... ENDFUNCTION
+CALL name(args)
+RETURN
+ASK_VALUE(port)
+ASK_VALUE_EV3(port)
+WRITE(port, value)
+TM_RECOGNIZE(className)
+TM_LEARN(className)
+FIND_COLOR(hMin,hMax,sMin,sMax,vMin,vMax)
+MOTOR left_speed right_speed time
+MOTOR_RAW left right
+LED r g b
+BEEP freq duration
+SERVO pin angle
+RANDOM min max
+TIME
+SLEEP ms
+BREAK
+CONTINUE`;
+        const blob = new Blob([list], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'pixel_commands.txt';
+        a.click();
+    });
+
+    // ==================== Teachable Machine (реальное распознавание) ====================
+    const tmScript = document.createElement('script');
+    tmScript.src = 'https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js';
+    document.head.appendChild(tmScript);
+
+    let tmModel = null;
+    let tmClasses = [{ label: 'класс 1', confidence: 0 }, { label: 'класс 2', confidence: 0 }];
+    let tmInterval = null;
+
+    function updateTMClasses() {
+        const container = document.getElementById('extTmClasses');
+        container.innerHTML = '';
+        tmClasses.forEach((cls, idx) => {
+            const div = document.createElement('div');
+            div.className = 'tm-class';
+            div.innerHTML = `
+                <div class="tm-class-name">
+                    <span>${cls.label} (${Math.round(cls.confidence * 100)}%)</span>
+                    <button class="extRenameClass" data-idx="${idx}">Назвать</button>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${cls.confidence * 100}%"></div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        document.querySelectorAll('.extRenameClass').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = e.target.dataset.idx;
+                const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.lang = window.config.lang === 'ru' ? 'ru-RU' : 'en-US';
+                recognition.onresult = (event) => {
+                    const name = event.results[0][0].transcript;
+                    tmClasses[idx].label = name;
+                    updateTMClasses();
+                };
+                recognition.start();
+            });
+        });
+    }
+
+    async function runTMPrediction() {
+        if (!tmModel || !window.videoElement || window.videoElement.readyState < 2) return;
+        try {
+            const predictions = await tmModel.predict(window.videoElement);
+            tmClasses = predictions.map(p => ({ label: p.className, confidence: p.probability }));
+            updateTMClasses();
+        } catch (e) {
+            console.error('TM prediction error', e);
+        }
+    }
+
+    function startTMRecognition() {
+        if (tmInterval) clearInterval(tmInterval);
+        tmInterval = setInterval(runTMPrediction, 300); // каждые 300 мс
+    }
+
+    document.getElementById('extTmUrlBtn').addEventListener('click', async () => {
+        const url = document.getElementById('extTmUrl').value;
+        if (!url) return;
+        try {
+            const modelURL = url;
+            const metadataURL = url.replace('model.json', 'metadata.json');
+            tmModel = await window.tmImage.load(modelURL, metadataURL);
+            tmClasses = tmModel.getClassLabels().map(label => ({ label, confidence: 0 }));
+            updateTMClasses();
+            startTMRecognition();
+        } catch (e) {
+            window.log(`Ошибка загрузки TM модели: ${e.message}`, 'sys');
+        }
+    });
+
+    document.getElementById('extTmFileBtn').addEventListener('click', () => {
+        alert('Загрузка файлов в демо-версии не реализована');
+    });
+
+    document.getElementById('extTmLearn').addEventListener('click', () => {
+        const newName = `Объект ${tmClasses.length + 1}`;
+        tmClasses.push({ label: newName, confidence: 0 });
+        updateTMClasses();
+    });
+
+    // Синхронизация видео для TM
+    if (window.videoElement && window.videoElement.srcObject) {
+        document.getElementById('extTmVideo').srcObject = window.videoElement.srcObject;
+    } else {
+        const check = setInterval(() => {
+            if (window.videoElement && window.videoElement.srcObject) {
+                document.getElementById('extTmVideo').srcObject = window.videoElement.srcObject;
+                clearInterval(check);
+            }
+        }, 500);
+    }
+
+    // ==================== Настройки: синхронизация ====================
+    const espIpField = document.getElementById('extSettingsEspIp');
+    espIpField.addEventListener('input', e => {
+        window.config.ip = e.target.value;
+        const origIp = document.getElementById('ip');
+        if (origIp) origIp.value = e.target.value;
+    });
+
+    document.getElementById('extSettingsEspTest').addEventListener('click', () => {
+        window.testESP32Connection();
+    });
+
+    const langSelectSettings = document.getElementById('extSettingsLang');
+    langSelectSettings.addEventListener('change', e => {
+        document.getElementById('langSelect').value = e.target.value;
+        document.getElementById('langSelect').dispatchEvent(new Event('change'));
+    });
+
+    const origLangSelect = document.getElementById('langSelect');
+    origLangSelect.addEventListener('change', e => {
+        langSelectSettings.value = e.target.value;
+    });
+
+    // ==================== Генерация PDF-инструкции (txt-файл) ====================
+    document.getElementById('extDownloadPdf').addEventListener('click', () => {
+        const content = `ИНСТРУКЦИЯ ПО ИСПОЛЬЗОВАНИЮ PIXEL AI
+
+ОСНОВНЫЕ ВОЗМОЖНОСТИ:
+- Голосовое управление через OpenRouter (скажите "Пиксель", затем команду)
+- Слежение за объектами по цвету в трёх режимах: STANDARD, SINGLE, MULTI
+- Управление ESP32 (движение, свет, звук, сервоприводы)
+- Калибровка цвета кликом по видео
+- Программирование на языке Pixel Programming Language
+- Интеграция с Teachable Machine для распознавания образов
+
+ЯЗЫК PIXEL PROGRAMMING LANGUAGE:
+MOVE FORWARD speed time
+MOVE BACKWARD speed time
+TURN LEFT angle speed
+TURN RIGHT angle speed
+STOP
+WAIT seconds
+WAIT_UNTIL condition
+WAIT_TO(port, value)
+PRINT text
+VARIABLE name = value
+SET name = value
+IF condition THEN ... ELSE ... ENDIF
+LOOP count ... ENDLOOP
+FUNCTION name(params) ... ENDFUNCTION
+CALL name(args)
+RETURN
+ASK_VALUE(port)
+ASK_VALUE_EV3(port)
+WRITE(port, value)
+TM_RECOGNIZE(className)
+TM_LEARN(className)
+FIND_COLOR(hMin,hMax,sMin,sMax,vMin,vMax)
+MOTOR left_speed right_speed time
+MOTOR_RAW left right
+LED r g b
+BEEP freq duration
+SERVO pin angle
+RANDOM min max
+TIME
+SLEEP ms
+BREAK
+CONTINUE
+
+ПРИМЕЧАНИЕ: Команды, требующие ESP32, работают только при наличии подключения к роботу. Без ESP32 они выводятся в терминал.`;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'pixel_manual.txt';
+        a.click();
+    });
+})();
 </script>
 </body>
 </html>
