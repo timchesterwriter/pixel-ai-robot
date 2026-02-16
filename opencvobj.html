@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Color Tracking — OpenCV.js</title>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1e1e2f, #0f0f17);
+      color: #fff;
+      padding: 24px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: #181825;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .control {
+      margin-bottom: 14px;
+    }
+
+    .control label {
+      display: block;
+      font-size: 13px;
+      opacity: .85;
+      margin-bottom: 6px;
+    }
+
+    .control input[type="range"],
+    .control input[type="color"] {
+      width: 100%;
+    }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .video-box {
+      background: #0c0c14;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .video-box h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      opacity: .8;
+    }
+
+    canvas {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 20px;
+      opacity: .6;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🎯 Отслеживание объекта по цвету (OpenCV.js)</h1>
+
+  <div class="container">
+    <!-- SETTINGS -->
+    <div class="panel">
+      <h2>⚙️ Настройки цвета</h2>
+
+      <div class="control">
+        <label>Выбранный цвет</label>
+        <input type="color" id="colorPicker" value="#ff0000">
+      </div>
+
+      <div class="control">
+        <label>Hue Range</label>
+        <input type="range" id="hRange" min="5" max="40" value="15">
+      </div>
+
+      <div class="control">
+        <label>Min Saturation</label>
+        <input type="range" id="sMin" min="0" max="255" value="100">
+      </div>
+
+      <div class="control">
+        <label>Min Value</label>
+        <input type="range" id="vMin" min="0" max="255" value="100">
+      </div>
+    </div>
+
+    <!-- VIDEO -->
+    <div class="panel">
+      <div class="video-grid">
+        <div class="video-box">
+          <h3>📷 Видео + Bounding Box</h3>
+          <canvas id="canvasOutput"></canvas>
+        </div>
+
+        <div class="video-box">
+          <h3>🧩 Сегментация</h3>
+          <canvas id="canvasMask"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    OpenCV.js · Color Tracking Demo
+  </footer>
+
+<script>
+let video = document.createElement('video');
+video.autoplay = true;
+
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => video.srcObject = stream);
+
+function hexToHSV(hex) {
+  let r = parseInt(hex.substr(1,2),16)/255;
+  let g = parseInt(hex.substr(3,2),16)/255;
+  let b = parseInt(hex.substr(5,2),16)/255;
+
+  let max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let d = max - min;
+  let h = 0;
+
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+
+  h = Math.round(h * 30);
+  if (h < 0) h += 180;
+
+  let s = max === 0 ? 0 : d / max;
+  let v = max;
+
+  return [h, Math.round(s * 255), Math.round(v * 255)];
+}
+
+cv['onRuntimeInitialized'] = () => {
+  const cap = new cv.VideoCapture(video);
+
+  const src = new cv.Mat(480, 640, cv.CV_8UC4);
+  const hsv = new cv.Mat();
+  const mask = new cv.Mat();
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+
+  const canvasOutput = document.getElementById('canvasOutput');
+  const canvasMask = document.getElementById('canvasMask');
+
+  function process() {
+    cap.read(src);
+    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+    const color = document.getElementById('colorPicker').value;
+    const hRange = +document.getElementById('hRange').value;
+    const sMin = +document.getElementById('sMin').value;
+    const vMin = +document.getElementById('vMin').value;
+
+    const [h,s,v] = hexToHSV(color);
+
+    let lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [h-hRange, sMin, vMin, 0]);
+    let upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [h+hRange, 255, 255, 255]);
+
+    cv.inRange(hsv, lower, upper, mask);
+
+    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    let maxArea = 0;
+    let maxContour = null;
+
+    for (let i = 0; i < contours.size(); i++) {
+      let cnt = contours.get(i);
+      let area = cv.contourArea(cnt);
+      if (area > maxArea) {
+        maxArea = area;
+        maxContour = cnt;
+      }
+    }
+
+    if (maxContour) {
+      let rect = cv.boundingRect(maxContour);
+      cv.rectangle(
+        src,
+        new cv.Point(rect.x, rect.y),
+        new cv.Point(rect.x + rect.width, rect.y + rect.height),
+        [0,255,0,255],
+        2
+      );
+    }
+
+    cv.imshow(canvasOutput, src);
+    cv.imshow(canvasMask, mask);
+
+    lower.delete();
+    upper.delete();
+    requestAnimationFrame(process);
+  }
+
+  process();
+};
+</script>
+</body>
+</html>
