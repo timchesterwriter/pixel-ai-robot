@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: Trinity Edition</title>
+    <title>PIXEL AI: Trinity + Умный трекер (адаптивный выбор цвета)</title>
     <style>
-        :root { --neon: #ffaa00; --bg: #0a0a0a; }
+        :root { --neon: #ffaa00; --bg: #0a0a0a; --track-color: #00ff9d; }
         body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
         #terminal { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #222; }
         .controls { padding: 20px; background: #111; display: flex; flex-direction: column; gap: 10px; }
@@ -19,7 +19,7 @@
         .esp-disconnected { color: #ff4757; }
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
-        
+
         /* ESP32 Connection Panel */
         #espPanel {
             padding: 15px;
@@ -27,14 +27,12 @@
             border-top: 1px solid #333;
             display: none;
         }
-        
         .esp-controls {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
             margin-top: 10px;
         }
-        
         .esp-btn {
             padding: 10px;
             background: #222;
@@ -45,20 +43,203 @@
             font-size: 12px;
             text-align: center;
         }
-        
         .esp-btn:hover {
             background: #333;
             border-color: var(--neon);
+        }
+
+        /* Camera panel */
+        #cameraPanel {
+            padding: 15px;
+            background: #111;
+            border-top: 1px solid #333;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #cameraHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--neon);
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        #videoContainer {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+            border: 2px solid var(--neon);
+            border-radius: 5px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 0 15px rgba(255,170,0,0.3);
+        }
+        #videoElement, #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        #videoElement { z-index: 1; }
+        #overlayCanvas { z-index: 2; pointer-events: none; }
+        #videoContainer::before {
+            content: "";
+            display: block;
+            padding-top: 75%; /* 4:3 */
+        }
+
+        /* Tracking stats */
+        #trackingStats {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            color: #00ff9d;
+            font-size: 12px;
+        }
+        .stat-item { text-align: center; }
+        .stat-label { color: #aaa; font-size: 10px; }
+        .stat-value { font-weight: bold; color: var(--neon); }
+
+        /* Color tuning panel (как во втором коде) */
+        #colorPanel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .color-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--neon);
+        }
+        .color-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            border: 2px solid white;
+        }
+        .slider-container {
+            margin: 5px 0;
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            color: #aaa;
+            font-size: 12px;
+        }
+        input[type=range] {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon);
+            cursor: pointer;
+        }
+        .mode-badge {
+            background: #00ff9d;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .btn-small {
+            padding: 8px 12px;
+            background: #222;
+            border: 1px solid var(--neon);
+            color: var(--neon);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-small:hover {
+            background: #333;
         }
     </style>
 </head>
 <body>
 
 <div style="padding: 10px; font-size: 12px; background: #111;">
-    STATUS: <span id="st">READY</span> | ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | CORE: TRINITY <span class="blink">_</span>
+    STATUS: <span id="st">READY</span> | ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | CAMERA: <span id="camStatus" class="esp-disconnected">OFF</span> | TRACKING: <span id="trackStatus" class="esp-disconnected">OFF</span> | FPS: <span id="fps">0</span>
 </div>
 
 <div id="terminal"></div>
+
+<!-- Camera Panel -->
+<div id="cameraPanel">
+    <div id="cameraHeader">
+        <span>📷 VIDEO FEED [ADAPTIVE TRACKER]</span>
+        <button id="stopTrackingBtn" onclick="stopTracking()" style="padding: 5px 10px; font-size: 12px; background: transparent; border: 1px solid #ff4757; color: #ff4757;">⏹ STOP TRACK</button>
+    </div>
+    <div id="videoContainer">
+        <video id="videoElement" autoplay playsinline muted></video>
+        <canvas id="overlayCanvas"></canvas>
+    </div>
+    <!-- Tracking statistics -->
+    <div id="trackingStats">
+        <div class="stat-item"><span class="stat-label">X</span><br><span id="xPos" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label">Y</span><br><span id="yPos" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label">Размер</span><br><span id="objectSize" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label">Уверенность</span><br><span id="confidence" class="stat-value">-</span></div>
+    </div>
+
+    <!-- Панель точной настройки цвета (как во втором коде) -->
+    <div id="colorPanel">
+        <div class="color-header">
+            <span>🎨 Точная настройка цвета</span>
+            <div class="mode-badge" id="currentColorName">Калибровка</div>
+        </div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <div class="color-preview" id="colorPreview" style="background: #ff0000;"></div>
+            <div style="flex:1;">
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn-small" id="calibrateBtn">🔍 Калибровка (клик)</button>
+                    <button class="btn-small" id="applyColorBtn">✅ Применить</button>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: #aaa;">
+                    H: <span id="hueVal">0</span>° S: <span id="satVal">100</span>% V: <span id="valVal">100</span>%
+                </div>
+            </div>
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span>Оттенок (Hue)</span><span id="hueSliderVal">0°</span></div>
+            <input type="range" id="hueSlider" min="0" max="360" value="0" step="1">
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span>Насыщенность</span><span id="satSliderVal">100%</span></div>
+            <input type="range" id="satSlider" min="0" max="100" value="100" step="1">
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span>Яркость</span><span id="valSliderVal">100%</span></div>
+            <input type="range" id="valSlider" min="0" max="100" value="100" step="1">
+        </div>
+        <div class="slider-container">
+            <div class="slider-header"><span>Чувствительность</span><span id="sensVal">15</span></div>
+            <input type="range" id="sensSlider" min="5" max="40" value="15" step="1">
+        </div>
+    </div>
+</div>
 
 <!-- Setup Panel -->
 <div class="controls" id="setup">
@@ -73,7 +254,6 @@
         <div>ESP32 CONTROLS:</div>
         <button onclick="testESP32Connection()" style="padding: 8px 12px; font-size: 12px;">🔧 TEST</button>
     </div>
-    
     <div class="esp-controls">
         <div class="esp-btn" onclick="sendESP32Command('LED_ON')">💡 ON</div>
         <div class="esp-btn" onclick="sendESP32Command('LED_OFF')">💡 OFF</div>
@@ -91,24 +271,88 @@
 </div>
 
 <script>
+    // ========== DOM элементы ==========
     const term = document.getElementById('terminal');
     const st = document.getElementById('st');
     const espStatus = document.getElementById('espStatus');
+    const camStatus = document.getElementById('camStatus');
+    const trackStatus = document.getElementById('trackStatus');
+    const fpsEl = document.getElementById('fps');
     const espPanel = document.getElementById('espPanel');
     const setupPanel = document.getElementById('setup');
-    
+    const cameraPanel = document.getElementById('cameraPanel');
+    const videoElement = document.getElementById('videoElement');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const overlayCtx = overlayCanvas.getContext('2d');
+    const stopTrackingBtn = document.getElementById('stopTrackingBtn');
+    const xPosEl = document.getElementById('xPos');
+    const yPosEl = document.getElementById('yPos');
+    const objectSizeEl = document.getElementById('objectSize');
+    const confidenceEl = document.getElementById('confidence');
+
+    // Элементы панели цвета
+    const colorPanel = document.getElementById('colorPanel');
+    const colorPreview = document.getElementById('colorPreview');
+    const hueSlider = document.getElementById('hueSlider');
+    const satSlider = document.getElementById('satSlider');
+    const valSlider = document.getElementById('valSlider');
+    const sensSlider = document.getElementById('sensSlider');
+    const hueSliderVal = document.getElementById('hueSliderVal');
+    const satSliderVal = document.getElementById('satSliderVal');
+    const valSliderVal = document.getElementById('valSliderVal');
+    const sensVal = document.getElementById('sensVal');
+    const hueVal = document.getElementById('hueVal');
+    const satVal = document.getElementById('satVal');
+    const valVal = document.getElementById('valVal');
+    const calibrateBtn = document.getElementById('calibrateBtn');
+    const applyColorBtn = document.getElementById('applyColorBtn');
+    const currentColorName = document.getElementById('currentColorName');
+
+    // ========== Конфигурация ==========
     let config = { 
         key: '', 
         ip: '', 
         active: false,
         espConnected: false
     };
-    
+
+    // Camera
+    let videoStream = null;
+    let hiddenCanvas = document.createElement('canvas');
+    let hiddenCtx = hiddenCanvas.getContext('2d');
+
+    // Tracking state (по типу второго кода)
+    let trackingActive = false;
+    let trackingLoopId = null;
+    let lastCommandTime = 0;
+    const COMMAND_COOLDOWN = 200;
+
+    // Текущий цвет и пороги (как во втором трекере)
+    let currentColor = {
+        h: 0,           // 0-360
+        s: 100,         // 0-100
+        v: 100,         // 0-100
+        threshold: { h: 15, s: 30, v: 30 }
+    };
+
+    // Флаг калибровки
+    let isCalibrating = false;
+
+    // FPS
+    let lastTimestamp = 0;
+    let frameCount = 0;
+    let fps = 0;
+
+    // OpenRouter model
+    const MODEL = "qwen/qwen3-vl-235b-a22b-thinking";
+
+    // Speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
     recognition.continuous = false;
 
+    // ========== Вспомогательные функции ==========
     function log(msg, cl = '') {
         const d = document.createElement('div');
         if(cl) d.className = cl;
@@ -117,259 +361,639 @@
         term.scrollTop = term.scrollHeight;
     }
 
-    async function boot() {
-        config.key = document.getElementById('key').value.trim();
-        config.ip = document.getElementById('ip').value.trim();
-        if(!config.key) return alert("Введите API ключ OpenRouter!");
-        
-        setupPanel.style.display = 'none';
-        config.active = true;
-        
-        log("Инициализация Trinity через OpenRouter...", "sys");
-        
-        // Проверяем подключение к ESP32 если указан IP
-        if(config.ip) {
-            await connectToESP32();
+    // RGB -> HSV (возвращает h 0-360, s 0-1, v 0-1)
+    function rgbToHsv(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const diff = max - min;
+        let h = 0;
+        let s = 0;
+        const v = max;
+        if (diff !== 0) {
+            s = diff / max;
+            if (max === r) {
+                h = (g - b) / diff + (g < b ? 6 : 0);
+            } else if (max === g) {
+                h = (b - r) / diff + 2;
+            } else {
+                h = (r - g) / diff + 4;
+            }
+            h /= 6;
         }
-        
-        speak("Система активирована. Жду команды.", startWaitingForName);
+        return { h: Math.round(h * 360), s, v };
     }
 
-    async function connectToESP32() {
-        log(`Проверяю подключение к ESP32: ${config.ip}`, "sys");
-        
+    // HSV -> RGB (h 0-360, s 0-1, v 0-1) -> {r,g,b} 0-255
+    function hsvToRgb(h, s, v) {
+        let r, g, b;
+        const hi = Math.floor(h / 60) % 6;
+        const f = h / 60 - hi;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+        switch (hi) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+        }
+        return {
+            r: Math.round(r * 255),
+            g: Math.round(g * 255),
+            b: Math.round(b * 255)
+        };
+    }
+
+    // Обновление preview цвета и слайдеров
+    function updateColorUI() {
+        hueSlider.value = currentColor.h;
+        satSlider.value = currentColor.s;
+        valSlider.value = currentColor.v;
+        sensSlider.value = currentColor.threshold.h; // используем h как основу для чувствительности
+
+        hueSliderVal.textContent = currentColor.h + '°';
+        satSliderVal.textContent = currentColor.s + '%';
+        valSliderVal.textContent = currentColor.v + '%';
+        sensVal.textContent = currentColor.threshold.h;
+
+        hueVal.textContent = currentColor.h;
+        satVal.textContent = currentColor.s;
+        valVal.textContent = currentColor.v;
+
+        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
+        colorPreview.style.backgroundColor = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+        currentColorName.textContent = `H:${currentColor.h}° S:${currentColor.s}% V:${currentColor.v}%`;
+    }
+
+    // Обновление порогов из чувствительности
+    function updateThresholdsFromSensitivity() {
+        const sens = parseInt(sensSlider.value);
+        currentColor.threshold = {
+            h: sens,
+            s: Math.min(50, sens * 2),
+            v: Math.min(50, sens * 2)
+        };
+        sensVal.textContent = sens;
+    }
+
+    // Поиск одного объекта по текущему цвету (алгоритм из второго кода)
+    function findSingleColorObject(data, width, height) {
+        let totalX = 0, totalY = 0, count = 0;
+        let minX = width, minY = height, maxX = 0, maxY = 0;
+
+        const { h: targetH, s: targetS, v: targetV } = currentColor;
+        const th = currentColor.threshold;
+
+        for (let y = 0; y < height; y += 2) {
+            for (let x = 0; x < width; x += 2) {
+                const index = (y * width + x) * 4;
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+
+                const hsv = rgbToHsv(r, g, b);
+                const h = hsv.h;
+                const s = Math.round(hsv.s * 100);
+                const v = Math.round(hsv.v * 100);
+
+                // Расстояние по оттенку с учётом цикличности
+                const hDiff = Math.abs(h - targetH);
+                const hueDistance = Math.min(hDiff, 360 - hDiff);
+                const sDiff = Math.abs(s - targetS);
+                const vDiff = Math.abs(v - targetV);
+
+                if (hueDistance <= th.h && sDiff <= th.s && vDiff <= th.v) {
+                    totalX += x;
+                    totalY += y;
+                    count++;
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+
+        if (count < 30) return null; // минимальная площадь
+
+        const centerX = Math.round(totalX / count);
+        const centerY = Math.round(totalY / count);
+        const objectWidth = maxX - minX;
+        const objectHeight = maxY - minY;
+        const confidence = Math.min(100, Math.round((count / (width * height / 4)) * 1000));
+
+        return {
+            centerX, centerY,
+            width: objectWidth,
+            height: objectHeight,
+            confidence,
+            pixelCount: count,
+            minX, minY, maxX, maxY
+        };
+    }
+
+    // Отрисовка результата (стилизовано как в первом коде, но с использованием текущего цвета)
+    function drawTrackingOverlay(result) {
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        if (!result) return;
+
+        const { centerX, centerY, width, height, confidence, minX, minY, maxX, maxY } = result;
+        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
+        const colorStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+
+        // Рамка
+        overlayCtx.strokeStyle = colorStyle;
+        overlayCtx.lineWidth = 3;
+        overlayCtx.strokeRect(minX, minY, width, height);
+
+        // Центр
+        overlayCtx.fillStyle = colorStyle;
+        overlayCtx.beginPath();
+        overlayCtx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+        overlayCtx.fill();
+
+        // Перекрестие
+        overlayCtx.strokeStyle = colorStyle;
+        overlayCtx.lineWidth = 2;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(centerX - 20, centerY);
+        overlayCtx.lineTo(centerX + 20, centerY);
+        overlayCtx.moveTo(centerX, centerY - 20);
+        overlayCtx.lineTo(centerX, centerY + 20);
+        overlayCtx.stroke();
+
+        // Пунктирные линии к краям
+        overlayCtx.strokeStyle = colorStyle;
+        overlayCtx.lineWidth = 1;
+        overlayCtx.setLineDash([5, 5]);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(centerX, centerY);
+        overlayCtx.lineTo(centerX, 0);
+        overlayCtx.stroke();
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(centerX, centerY);
+        overlayCtx.lineTo(0, centerY);
+        overlayCtx.stroke();
+        overlayCtx.setLineDash([]);
+
+        // Подпись уверенности
+        overlayCtx.font = 'bold 14px "Courier New", monospace';
+        const textWidth = overlayCtx.measureText(`${confidence}%`).width;
+        overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        overlayCtx.fillRect(centerX - textWidth/2 - 10, minY - 30, textWidth + 20, 25);
+        overlayCtx.fillStyle = '#fff';
+        overlayCtx.textAlign = 'center';
+        overlayCtx.fillText(`${confidence}%`, centerX, minY - 10);
+
+        // Информация о цвете
+        overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        overlayCtx.fillRect(10, 10, 180, 60);
+        overlayCtx.fillStyle = colorStyle;
+        overlayCtx.fillRect(20, 20, 30, 30);
+        overlayCtx.fillStyle = '#fff';
+        overlayCtx.font = 'bold 12px "Courier New", monospace';
+        overlayCtx.textAlign = 'left';
+        overlayCtx.fillText('TRACKING', 60, 30);
+        overlayCtx.font = '10px "Courier New", monospace';
+        overlayCtx.fillText(`Уверенность: ${confidence}%`, 60, 45);
+        overlayCtx.fillText(`H:${currentColor.h} S:${currentColor.s} V:${currentColor.v}`, 60, 60);
+    }
+
+    function updateTrackingStats(result) {
+        if (result) {
+            xPosEl.textContent = result.centerX;
+            yPosEl.textContent = result.centerY;
+            objectSizeEl.textContent = `${result.width}×${result.height}`;
+            confidenceEl.textContent = `${result.confidence}%`;
+        } else {
+            xPosEl.textContent = '-';
+            yPosEl.textContent = '-';
+            objectSizeEl.textContent = '-';
+            confidenceEl.textContent = '-';
+        }
+    }
+
+    // ========== Инициализация камеры ==========
+    async function initCamera() {
         try {
-            // Пробуем подключиться к ESP32
+            videoStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480, facingMode: 'environment' } 
+            });
+            videoElement.srcObject = videoStream;
+            await videoElement.play();
+
+            videoElement.addEventListener('loadedmetadata', () => {
+                const width = videoElement.videoWidth;
+                const height = videoElement.videoHeight;
+                overlayCanvas.width = width;
+                overlayCanvas.height = height;
+                hiddenCanvas.width = width;
+                hiddenCanvas.height = height;
+                log(`📐 Размер видео: ${width}x${height}`, 'sys');
+            });
+
+            if (videoElement.videoWidth) {
+                overlayCanvas.width = videoElement.videoWidth;
+                overlayCanvas.height = videoElement.videoHeight;
+                hiddenCanvas.width = videoElement.videoWidth;
+                hiddenCanvas.height = videoElement.videoHeight;
+            }
+
+            cameraPanel.style.display = 'flex';
+            colorPanel.style.display = 'flex'; // показываем панель настройки
+            camStatus.textContent = 'ON';
+            camStatus.className = 'esp-connected';
+            log('✅ Камера инициализирована', 'sys');
+        } catch (err) {
+            log('❌ Ошибка доступа к камере: ' + err.message, 'sys');
+            camStatus.textContent = 'OFF';
+        }
+    }
+
+    // Захват кадра для OpenRouter
+    async function captureImage() {
+        if (!videoElement || videoElement.readyState < 2) return null;
+        const width = videoElement.videoWidth;
+        const height = videoElement.videoHeight;
+        hiddenCanvas.width = width;
+        hiddenCanvas.height = height;
+        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
+        return hiddenCanvas.toDataURL('image/jpeg', 0.7);
+    }
+
+    // ========== Функции трекинга ==========
+    // Преобразует диапазон от ИИ в currentColor и пороги
+    function setColorFromRange(hMin, hMax, sMin, sMax, vMin, vMax) {
+        // Вычисляем средние значения
+        let h = Math.round((hMin + hMax) / 2);
+        // Корректировка для красного, если диапазон переходит через 0
+        if (hMin > hMax) {
+            // Например, 350-10 -> среднее должно быть около 0? возьмём по модулю
+            h = Math.round(((hMin + hMax + 360) / 2) % 360);
+        }
+        const s = Math.round((sMin + sMax) / 2);
+        const v = Math.round((vMin + vMax) / 2);
+        const thH = Math.max(5, Math.round((hMax - hMin + (hMin > hMax ? 360 : 0)) / 2));
+        const thS = Math.max(10, Math.round((sMax - sMin) / 2));
+        const thV = Math.max(10, Math.round((vMax - vMin) / 2));
+
+        currentColor.h = h;
+        currentColor.s = s;
+        currentColor.v = v;
+        currentColor.threshold = { h: thH, s: thS, v: thV };
+
+        updateColorUI();
+        log(`🎯 Цвет установлен: H=${h} S=${s} V=${v} | пороги: H±${thH} S±${thS} V±${thV}`, 'sys');
+    }
+
+    function startTracking(hMin, hMax, sMin, sMax, vMin, vMax) {
+        if (trackingActive) stopTracking();
+
+        setColorFromRange(hMin, hMax, sMin, sMax, vMin, vMax);
+        trackingActive = true;
+        trackStatus.textContent = 'ON';
+        trackStatus.className = 'esp-connected';
+        log(`🎯 Режим слежения активирован.`, 'sys');
+
+        lastTimestamp = performance.now();
+        frameCount = 0;
+        trackingLoopId = requestAnimationFrame(trackingLoop);
+    }
+
+    function stopTracking() {
+        if (trackingActive) {
+            trackingActive = false;
+            trackStatus.textContent = 'OFF';
+            trackStatus.className = 'esp-disconnected';
+            if (trackingLoopId) {
+                cancelAnimationFrame(trackingLoopId);
+                trackingLoopId = null;
+            }
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            updateTrackingStats(null);
+            log('⏹ Режим слежения отключен', 'sys');
+        }
+    }
+
+    function trackingLoop() {
+        if (!trackingActive || !videoElement || videoElement.readyState < 2) {
+            trackingLoopId = requestAnimationFrame(trackingLoop);
+            return;
+        }
+
+        const width = videoElement.videoWidth;
+        const height = videoElement.videoHeight;
+        if (width === 0 || height === 0) {
+            trackingLoopId = requestAnimationFrame(trackingLoop);
+            return;
+        }
+
+        // FPS
+        const now = performance.now();
+        frameCount++;
+        if (now - lastTimestamp >= 1000) {
+            fps = Math.round((frameCount * 1000) / (now - lastTimestamp));
+            fpsEl.textContent = fps;
+            frameCount = 0;
+            lastTimestamp = now;
+        }
+
+        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
+        const imageData = hiddenCtx.getImageData(0, 0, width, height);
+        const result = findSingleColorObject(imageData.data, width, height);
+
+        drawTrackingOverlay(result);
+        updateTrackingStats(result);
+
+        // Отправка команд на ESP32 при отклонении от центра
+        if (result && config.espConnected) {
+            const frameCenterX = width / 2;
+            const threshold = width * 0.1;
+            if (now - lastCommandTime > COMMAND_COOLDOWN) {
+                let command = null;
+                if (result.centerX < frameCenterX - threshold) {
+                    command = 'ROTATE_LEFT|30|150';
+                } else if (result.centerX > frameCenterX + threshold) {
+                    command = 'ROTATE_RIGHT|30|150';
+                }
+                if (command) {
+                    sendESP32Command(command);
+                    lastCommandTime = now;
+                }
+            }
+        }
+
+        trackingLoopId = requestAnimationFrame(trackingLoop);
+    }
+
+    // ========== ESP32 ==========
+    async function connectToESP32() {
+        log(`Проверяю подключение к ESP32: ${config.ip}`, 'sys');
+        try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
-            
-            await fetch(`http://${config.ip}/ping`, {
-                method: 'GET',
-                mode: 'no-cors',
-                signal: controller.signal
-            }).catch(() => null);
-            
+            await fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors', signal: controller.signal }).catch(() => null);
             clearTimeout(timeoutId);
-            
             config.espConnected = true;
-            espStatus.textContent = "CONNECTED";
-            espStatus.className = "esp-connected";
+            espStatus.textContent = 'CONNECTED';
+            espStatus.className = 'esp-connected';
             espPanel.style.display = 'block';
-            
-            log("✅ Успешно подключено к ESP32!", "sys");
-            speak("Подключение к роботу установлено.");
-            
+            log('✅ Успешно подключено к ESP32!', 'sys');
+            speak('Подключение к роботу установлено.');
         } catch (error) {
-            log("❌ Не удалось подключиться к ESP32", "sys");
-            log("Команды будут выводиться только в терминал", "sys");
-            espStatus.textContent = "ERROR";
+            log('❌ Не удалось подключиться к ESP32. Команды будут выводиться только в терминал.', 'sys');
+            espStatus.textContent = 'ERROR';
         }
     }
 
-    async function testESP32Connection() {
-        if(!config.ip) return;
-        
-        log("Тестирую подключение к ESP32...", "sys");
-        
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
-            
-            await fetch(`http://${config.ip}/ping`, {
-                method: 'GET',
-                mode: 'no-cors',
-                signal: controller.signal
+    function testESP32Connection() {
+        if (!config.ip) return;
+        log('Тестирую подключение к ESP32...', 'sys');
+        fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors' })
+            .then(() => {
+                log('✅ ESP32 отвечает', 'sys');
+                espStatus.textContent = 'CONNECTED';
+                espStatus.className = 'esp-connected';
+                config.espConnected = true;
+            })
+            .catch(() => {
+                log('❌ ESP32 не отвечает', 'sys');
+                espStatus.textContent = 'DISCONNECTED';
+                espStatus.className = 'esp-disconnected';
+                config.espConnected = false;
             });
-            
-            clearTimeout(timeoutId);
-            log("✅ ESP32 отвечает на запросы", "sys");
-            espStatus.textContent = "CONNECTED";
-            espStatus.className = "esp-connected";
-            config.espConnected = true;
-            
-        } catch (error) {
-            log("❌ ESP32 не отвечает", "sys");
-            espStatus.textContent = "DISCONNECTED";
-            espStatus.className = "esp-disconnected";
-            config.espConnected = false;
-        }
     }
 
     function sendESP32Command(command) {
-        if(!config.espConnected || !config.ip) {
-            log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, "sys");
+        if (!config.espConnected || !config.ip) {
+            log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, 'sys');
             return;
         }
-        
-        // Отправляем команду на ESP32
-        fetch(`http://${config.ip}/command`, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: command
-        }).catch(error => {
-            console.error("Ошибка отправки команды:", error);
-        });
-        
-        log(`📤 Команда отправлена на ESP32: ${command}`, "sys");
+        fetch(`http://${config.ip}/command`, { method: 'POST', mode: 'no-cors', body: command })
+            .catch(err => console.error('Ошибка отправки команды:', err));
+        log(`📤 Команда отправлена на ESP32: ${command}`, 'sys');
     }
 
-    // Этап 1: Ожидание активационного имени "Пиксель"
+    // ========== Калибровка кликом ==========
+    function startCalibration() {
+        if (!videoElement.srcObject) return;
+        isCalibrating = true;
+        log('🔍 Режим калибровки: кликните на объект в видео', 'sys');
+        videoElement.style.cursor = 'crosshair';
+        videoElement.addEventListener('click', handleCalibrationClick, { once: true });
+    }
+
+    function handleCalibrationClick(event) {
+        const rect = videoElement.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const scaleX = videoElement.videoWidth / rect.width;
+        const scaleY = videoElement.videoHeight / rect.height;
+        const imageX = Math.floor(x * scaleX);
+        const imageY = Math.floor(y * scaleY);
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = videoElement.videoWidth;
+        tempCanvas.height = videoElement.videoHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(videoElement, 0, 0);
+        const pixel = tempCtx.getImageData(imageX, imageY, 1, 1).data;
+        const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+
+        currentColor.h = hsv.h;
+        currentColor.s = Math.round(hsv.s * 100);
+        currentColor.v = Math.round(hsv.v * 100);
+        // Сброс порогов на стандартные
+        currentColor.threshold = { h: 15, s: 30, v: 30 };
+        updateColorUI();
+
+        log(`✅ Цвет откалиброван: H=${currentColor.h}°, S=${currentColor.s}%, V=${currentColor.v}%`, 'sys');
+        videoElement.style.cursor = 'default';
+        isCalibrating = false;
+    }
+
+    // Применить текущие настройки цвета (запустить трекинг с ними)
+    function applyColorAndStartTracking() {
+        if (!trackingActive) {
+            // Запускаем трекинг с текущим цветом и порогами (преобразуем в диапазон)
+            const hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
+            const hMax = (currentColor.h + currentColor.threshold.h) % 360;
+            const sMin = Math.max(0, currentColor.s - currentColor.threshold.s);
+            const sMax = Math.min(100, currentColor.s + currentColor.threshold.s);
+            const vMin = Math.max(0, currentColor.v - currentColor.threshold.v);
+            const vMax = Math.min(100, currentColor.v + currentColor.threshold.v);
+            startTracking(hMin, hMax, sMin, sMax, vMin, vMax);
+        } else {
+            log('Сначала остановите текущее слежение', 'sys');
+        }
+    }
+
+    // ========== Голосовой интерфейс и ИИ ==========
+    function boot() {
+        config.key = document.getElementById('key').value.trim();
+        config.ip = document.getElementById('ip').value.trim();
+        if (!config.key) return alert('Введите API ключ OpenRouter!');
+
+        setupPanel.style.display = 'none';
+        config.active = true;
+
+        log('Инициализация Trinity с адаптивным трекером...', 'sys');
+        initCamera();
+        if (config.ip) connectToESP32();
+
+        speak('Система активирована. Жду команды.', startWaitingForName);
+    }
+
     function startWaitingForName() {
-        if(!config.active) return;
-        st.innerText = "LISTENING (NAME)";
-        st.style.color = "#ffaa00";
+        if (!config.active) return;
+        st.innerText = 'LISTENING (NAME)';
+        st.style.color = '#ffaa00';
 
         recognition.onresult = (event) => {
             const text = event.results[0][0].transcript.toLowerCase();
             log(`<span class="user">Слышу: "${text}"</span>`);
-            
-            if (text.includes("пиксель") || text.includes("pixel")) {
+            if (text.includes('пиксель') || text.includes('pixel')) {
                 handleTrigger();
             } else {
                 safeRestart();
             }
         };
-
-        recognition.onend = () => { 
-            if(st.innerText === "LISTENING (NAME)") safeRestart(); 
-        };
-        
-        try { 
-            recognition.start(); 
-        } catch(e) {
-            console.error("Ошибка запуска распознавания:", e);
-            setTimeout(safeRestart, 100);
-        }
+        recognition.onend = () => { if (st.innerText === 'LISTENING (NAME)') safeRestart(); };
+        try { recognition.start(); } catch (e) { setTimeout(safeRestart, 100); }
     }
 
-    // Этап 2: Реакция на имя и ожидание самой команды
     function handleTrigger() {
-        st.innerText = "REPLYING";
-        const reply = "Слушаю тебя!";
-        log(`PIXEL: ${reply}`, "sys");
-        
+        st.innerText = 'REPLYING';
+        const reply = 'Слушаю тебя!';
+        log(`PIXEL: ${reply}`, 'sys');
         speak(reply, () => {
-            st.innerText = "LISTENING (CMD)";
-            log("Говорите команду...", "sys");
-            
+            st.innerText = 'LISTENING (CMD)';
+            log('Говорите команду...', 'sys');
             recognition.onresult = (event) => {
                 const cmdText = event.results[0][0].transcript;
                 log(`<span class="user">ЗАПРОС: "${cmdText}"</span>`);
                 askTrinity(cmdText);
             };
-            
-            recognition.onend = () => { 
-                if(st.innerText === "LISTENING (CMD)") safeRestart(); 
-            };
-            
-            try { 
-                recognition.start(); 
-            } catch(e) {
-                safeRestart();
-            }
+            recognition.onend = () => { if (st.innerText === 'LISTENING (CMD)') safeRestart(); };
+            try { recognition.start(); } catch (e) { safeRestart(); }
         });
     }
 
-    // Этап 3: Запрос к Trinity
     async function askTrinity(prompt) {
-        st.innerText = "THINKING";
-        log("Trinity анализирует...", "sys");
+        st.innerText = 'THINKING';
+        log('Trinity анализирует (с камерой)...', 'sys');
+
+        const imageDataUrl = await captureImage();
+        if (imageDataUrl) log('📸 Кадр с камеры захвачен', 'sys');
+
+        let userContent;
+        if (imageDataUrl) {
+            userContent = [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: imageDataUrl } }
+            ];
+        } else {
+            userContent = prompt;
+        }
 
         try {
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
                 headers: {
-                    "Authorization": `Bearer ${config.key}`,
-                    "HTTP-Referer": window.location.href,
-                    "Content-Type": "application/json"
+                    'Authorization': `Bearer ${config.key}`,
+                    'HTTP-Referer': window.location.href,
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    "model": "arcee-ai/trinity-large-preview:free",
-                    "messages": [
+                    model: MODEL,
+                    messages: [
                         {
-                            "role": "system",
-                            "content": `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай ТОЛЬКО на русском языке.
+                            role: 'system',
+                            content: `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай ТОЛЬКО на русском языке.
+
+Тебе может быть предоставлено изображение с камеры робота. 
+- Если пользователь спрашивает о том, что робот видит (например: "что ты видишь?", "какая обстановка?"), используй информацию из изображения для ответа.
+- Если вопрос не связан с визуальной информацией, отвечай как обычно, НЕ упоминая наличие фото.
+
+Для включения режима слежения за объектом пользователь может сказать, например: "следи за красной чашкой". В этом случае ты должен:
+1. Проанализировать изображение и определить объект, за которым нужно следить.
+2. ВАЖНО: выбери такой цвет объекта, который максимально контрастирует с фоном и не встречается у других объектов на изображении. Например, если фон жёлтый, а объект жёлто-чёрный, выбери чёрный цвет. Если объект однотонный, но на фоне есть похожий цвет, выбери другой оттенок (если объект многоцветный) или сузь диапазон до уникального оттенка.
+3. Определи диапазон HSV (Hue 0-360, Saturation 0-255, Value 0-255) для выбранного цвета. Диапазон должен быть узким (например, допуск по H 10-15, по S и V 20-30), чтобы не захватывать фон. Учти, что красный цвет может быть в двух диапазонах (около 0 и 360).
+4. В ответе, помимо текста, добавь специальную команду: 
+   TRACK_START|hMin,hMax,sMin,sMax,vMin,vMax
+   Например: TRACK_START|0,15,100,255,100,255
+5. Если нужно остановить слежение, используй команду TRACK_STOP.
 
 Доступные команды для управления роботом:
-1. ДВИЖЕНИЕ:
-   - MOVE_FORWARD|SPEED|TIME - вперед (скорость 0-100, время в мс)
-   - MOVE_BACKWARD|SPEED|TIME - назад
-   - ROTATE_LEFT|DEGREES|SPEED - поворот налево (градусы, скорость 0-100)
-   - ROTATE_RIGHT|DEGREES|SPEED - поворот направо
-   - STOP - полная остановка
-   - TURN|DEGREES| - повернуться на градусы (использует гироскоп)
-
-2. РЕЖИМЫ:
-   - REMOTECONTROL_MODE - режим дистанционного управления
-   - DANCE_1 - танец номер 1
-   - DANCE_2 - танец номер 2
-   - DANCE_3 - танец номер 3
-   - DANCE_1,2,3 - несколько танцев сразу
-
-3. УТИЛИТЫ:
-   - LED_ON - включить светодиод на ESP32
-   - LED_OFF - выключить светодиод
-   - WAIT_5 - ждать 5 секунд (может быть любое число)
+- MOVE_FORWARD|SPEED|TIME
+- MOVE_BACKWARD|SPEED|TIME
+- ROTATE_LEFT|DEGREES|SPEED
+- ROTATE_RIGHT|DEGREES|SPEED
+- STOP
+- LED_ON / LED_OFF
+- WAIT_<секунды>
 
 Формат ответа строго такой:
 Text: [твой текстовый ответ на русском языке]
-Commands: [команды через запятую или null]
+Commands: [команды через ; или null]
 
-Пример:
-Пользователь: "Поезди вперед и поверни налево"
-Ответ: 
-Text: Еду вперед и поворачиваю налево.
-Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
+Пример для слежения:
+Пользователь: "Пиксель, следи за синим мячом"
+Ответ:
+Text: Хорошо, я буду следить за синим мячом.
+Commands: TRACK_START|200,220,100,255,100,255; MOVE_FORWARD|30|1000
 
 ВНИМАНИЕ:
-1. Команды НЕ озвучиваются, только пишутся в терминал
-2. Всегда отвечай на русском
-3. Не используй смайлики в тексте
-4. Если команда не нужна - пиши Commands: null
-5. Для ожидания используй WAIT_<секунды>`
+- Команды НЕ озвучиваются, только пишутся в терминал
+- Всегда отвечай на русском
+- Не используй смайлики в тексте`
                         },
-                        { "role": "user", "content": prompt }
+                        { role: 'user', content: userContent }
                     ],
-                    "temperature": 0.6
+                    temperature: 0.6
                 })
             });
 
             const data = await response.json();
-            
             if (data.error) throw new Error(data.error.message);
 
             const aiRaw = data.choices[0].message.content;
-            
-            // Извлекаем текстовый ответ и команды
             const txt = aiRaw.match(/Text:\s*(.*)/i)?.[1] || aiRaw;
             const cmdMatch = aiRaw.match(/Commands:\s*(.*)/i);
-            let cmds = cmdMatch ? cmdMatch[1] : "null";
-            
-            // Очищаем команды от лишних пробелов
-            cmds = cmds.replace(/\s+/g, '').toUpperCase();
-            
-            // Выводим ответ ИИ
-            log(`PIXEL: ${txt}`, "ai");
-            
-            // Выводим команды отдельно (не озвучиваем!)
-            if (cmds !== "NULL" && cmds !== "") {
-                const commands = cmds.split(',').filter(cmd => cmd.trim() !== '');
-                commands.forEach(cmd => {
-                    log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, "sys");
-                    
-                    // Отправляем команду на ESP32 если подключено
-                    if(config.espConnected && config.ip) {
-                        sendESP32Command(cmd.trim());
+            let cmds = cmdMatch ? cmdMatch[1] : 'null';
+            cmds = cmds.trim();
+
+            log(`PIXEL: ${txt}`, 'ai');
+
+            if (cmds !== 'NULL' && cmds !== '' && cmds.toLowerCase() !== 'null') {
+                const commands = cmds.split(';').filter(c => c.trim() !== '');
+                for (let cmd of commands) {
+                    cmd = cmd.trim();
+                    if (cmd.startsWith('TRACK_START|')) {
+                        const paramsPart = cmd.substring('TRACK_START|'.length);
+                        const params = paramsPart.split(',').map(Number);
+                        if (params.length === 6) {
+                            const [hMin, hMax, sMin, sMax, vMin, vMax] = params;
+                            startTracking(hMin, hMax, sMin, sMax, vMin, vMax);
+                        } else {
+                            log(`❌ Неверный формат TRACK_START: ${cmd}`, 'sys');
+                        }
+                    } else if (cmd === 'TRACK_STOP') {
+                        stopTracking();
+                    } else {
+                        log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, 'sys');
+                        if (config.espConnected && config.ip) sendESP32Command(cmd);
                     }
-                });
+                }
             }
 
-            // Озвучиваем только текстовый ответ (без команд)
             speak(txt, startWaitingForName);
-
         } catch (e) {
-            log("ОШИБКА: " + e.message, "sys");
-            speak("Произошла ошибка при обработке запроса", startWaitingForName);
+            log('ОШИБКА: ' + e.message, 'sys');
+            speak('Произошла ошибка при обработке запроса', startWaitingForName);
         }
     }
 
@@ -377,22 +1001,48 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
         window.speechSynthesis.cancel();
         const msg = new SpeechSynthesisUtterance(text);
         msg.lang = 'ru-RU';
-        msg.rate = 0.9; // Немного медленнее для лучшего понимания
+        msg.rate = 0.9;
         msg.onend = callback;
         window.speechSynthesis.speak(msg);
     }
 
     function safeRestart() {
-        if(config.active) {
-            setTimeout(() => { 
-                try { 
-                    recognition.start(); 
-                } catch(e) {
-                    console.error("Failed to restart recognition:", e);
-                } 
-            }, 100);
+        if (config.active) {
+            setTimeout(() => { try { recognition.start(); } catch (e) {} }, 100);
         }
     }
+
+    // ========== Обработчики UI ==========
+    stopTrackingBtn.addEventListener('click', stopTracking);
+
+    // Слайдеры
+    hueSlider.addEventListener('input', () => {
+        currentColor.h = parseInt(hueSlider.value);
+        updateColorUI();
+    });
+    satSlider.addEventListener('input', () => {
+        currentColor.s = parseInt(satSlider.value);
+        updateColorUI();
+    });
+    valSlider.addEventListener('input', () => {
+        currentColor.v = parseInt(valSlider.value);
+        updateColorUI();
+    });
+    sensSlider.addEventListener('input', () => {
+        updateThresholdsFromSensitivity();
+        updateColorUI();
+    });
+
+    calibrateBtn.addEventListener('click', startCalibration);
+    applyColorBtn.addEventListener('click', applyColorAndStartTracking);
+
+    window.addEventListener('beforeunload', () => {
+        if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+        stopTracking();
+    });
+
+    // Инициализация UI цвета
+    updateColorUI();
 </script>
 </body>
 </html>
