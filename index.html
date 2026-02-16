@@ -540,7 +540,7 @@
     let trackedObjects = [];       // массив индексов выбранных объектов для MULTI
 
     // DOM элементы
-    const term = document.getElementById('terminal');
+    const term = document.cetElementById('terminal');
     const st = document.getElementById('st');
     const espStatus = document.getElementById('espStatus');
     const camStatus = document.getElementById('camStatus');
@@ -1019,18 +1019,15 @@
                 const frameCenterX = width / 2;
                 const frameCenterY = height / 2;
                 const thresholdX = width * 0.1;
-                const thresholdY = height * 0.15; // порог для движения вперёд/назад
+                const thresholdY = height * 0.15;
                 const now = performance.now();
                 if (now - lastCommandTime > COMMAND_COOLDOWN) {
                     let command = null;
-                    // Поворот в зависимости от X
                     if (centerX < frameCenterX - thresholdX) {
                         command = 'ROTATE_LEFT|30|150';
                     } else if (centerX > frameCenterX + thresholdX) {
                         command = 'ROTATE_RIGHT|30|150';
                     }
-                    // Движение вперёд/назад в зависимости от Y (чем выше объект, тем ближе?)
-                    // Если объект выше центра (меньше Y) — нужно ехать вперёд, если ниже — назад
                     if (centerY < frameCenterY - thresholdY) {
                         command = 'MOVE_FORWARD|30|150';
                     } else if (centerY > frameCenterY + thresholdY) {
@@ -1291,7 +1288,7 @@
         startTracking(colorRanges, trackingModeSelect.value);
     });
 
-    // ========== Голосовой интерфейс и ИИ (добавлен парсинг режима) ==========
+    // ========== Голосовой интерфейс и ИИ (улучшенный промпт для Qwen) ==========
     const MODEL = "qwen/qwen3-vl-235b-a22b-thinking";
     let recognition = null;
 
@@ -1379,9 +1376,9 @@
                             content: `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай на языке пользователя (ru или en).
 
 Тебе может быть предоставлено изображение с камеры робота. 
-- Если пользователь просит следить за объектом, ты должен проанализировать сцену и выбрать такой цвет (или несколько цветов) объекта, который максимально контрастирует с фоном и не встречается у других объектов.
-- Верни команду TRACK_START с режимом и одним или несколькими диапазонами HSV (H 0-360, S 0-255, V 0-255). Формат: TRACK_START|РЕЖИМ|h1,h2,s1,s2,v1,v2|... где РЕЖИМ может быть STANDART, SINGLE или MULTI. Например: TRACK_START|SINGLE|0,15,100,255,100,255|25,35,80,200,50,150
-- Если объект имеет несколько цветов, укажи несколько диапазонов.
+- Если пользователь просит следить за объектом, ты должен проанализировать сцену и определить **доминирующий цвет** объекта, который максимально контрастирует с фоном и не встречается у других объектов.
+- Верни команду TRACK_START с режимом и **одним** диапазоном HSV (H 0-360, S 0-255, V 0-255) для этого цвета. Диапазон должен быть **точно по цвету объекта** (без расширения на соседние оттенки). Формат: TRACK_START|РЕЖИМ|hMin,hMax,sMin,sMax,vMin,vMax. Например: TRACK_START|SINGLE|200,220,100,255,100,255.
+- Если объект имеет несколько цветов, выбери основной (самый большой по площади) и верни только один диапазон.
 - Если нужно остановить слежение, используй TRACK_STOP.
 - Для других команд используй стандартные: MOVE_FORWARD|SPEED|TIME и т.д.
 
@@ -1390,8 +1387,8 @@ Text: [твой текстовый ответ]
 Commands: [команды через ; или null]
 
 Пример:
-Text: Хорошо, я буду следить за сине-красным мячом в режиме SINGLE.
-Commands: TRACK_START|SINGLE|200,220,100,255,100,255|0,15,100,255,100,255; MOVE_FORWARD|30|1000`
+Text: Хорошо, я буду следить за синим мячом в режиме SINGLE.
+Commands: TRACK_START|SINGLE|200,220,100,255,100,255; MOVE_FORWARD|30|1000`
                         },
                         { role: 'user', content: userContent }
                     ],
