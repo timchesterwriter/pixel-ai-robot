@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: Trinity + Умный трекер (адаптивный выбор цвета)</title>
+    <title>PIXEL AI: OpenCV + ИИ трекер (с формой и переводом)</title>
     <style>
         :root { --neon: #ffaa00; --bg: #0a0a0a; --track-color: #00ff9d; }
         body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
         #terminal { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #222; }
         .controls { padding: 20px; background: #111; display: flex; flex-direction: column; gap: 10px; }
-        input { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
+        input, select { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
         button { padding: 15px; background: var(--neon); border: none; font-weight: bold; border-radius: 5px; cursor: pointer; color: #000; }
         .sys { color: #00d2ff; }
         .ai { color: #fff; border-left: 2px solid var(--neon); padding-left: 10px; margin: 5px 0; }
@@ -19,6 +19,21 @@
         .esp-disconnected { color: #ff4757; }
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
+
+        /* Language selector */
+        #langPanel {
+            display: flex;
+            justify-content: flex-end;
+            padding: 5px 10px;
+            background: #111;
+        }
+        #langSelect {
+            background: #000;
+            color: var(--neon);
+            border: 1px solid var(--neon);
+            padding: 5px;
+            border-radius: 3px;
+        }
 
         /* ESP32 Connection Panel */
         #espPanel {
@@ -65,18 +80,23 @@
             font-size: 14px;
             text-transform: uppercase;
         }
-        #videoContainer {
+        .video-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .video-container {
             position: relative;
             width: 100%;
-            max-width: 640px;
-            margin: 0 auto;
+            max-width: 480px;
             border: 2px solid var(--neon);
             border-radius: 5px;
             overflow: hidden;
             background: #000;
             box-shadow: 0 0 15px rgba(255,170,0,0.3);
         }
-        #videoElement, #overlayCanvas {
+        .video-container video, .video-container .overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -84,12 +104,25 @@
             height: 100%;
             object-fit: contain;
         }
-        #videoElement { z-index: 1; }
-        #overlayCanvas { z-index: 2; pointer-events: none; }
-        #videoContainer::before {
+        .video-container video { z-index: 1; }
+        .video-container .overlay { z-index: 2; pointer-events: none; }
+        .video-container::before {
             content: "";
             display: block;
             padding-top: 75%; /* 4:3 */
+        }
+        .mask-container {
+            width: 100%;
+            max-width: 480px;
+            border: 2px solid var(--neon);
+            border-radius: 5px;
+            background: #000;
+            box-shadow: 0 0 15px rgba(255,170,0,0.3);
+        }
+        .mask-container canvas {
+            width: 100%;
+            height: auto;
+            display: block;
         }
 
         /* Tracking stats */
@@ -109,7 +142,7 @@
         .stat-label { color: #aaa; font-size: 10px; }
         .stat-value { font-weight: bold; color: var(--neon); }
 
-        /* Color tuning panel (как во втором коде) */
+        /* Color tuning panel */
         #colorPanel {
             background: #1a1a1a;
             border: 1px solid #333;
@@ -177,11 +210,25 @@
             background: #333;
         }
     </style>
+    <!-- Загружаем OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady()"></script>
 </head>
 <body>
 
+<!-- Language selector -->
+<div id="langPanel">
+    <select id="langSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+    </select>
+</div>
+
 <div style="padding: 10px; font-size: 12px; background: #111;">
-    STATUS: <span id="st">READY</span> | ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | CAMERA: <span id="camStatus" class="esp-disconnected">OFF</span> | TRACKING: <span id="trackStatus" class="esp-disconnected">OFF</span> | FPS: <span id="fps">0</span>
+    <span id="statusLabel">STATUS:</span> <span id="st">READY</span> | 
+    <span id="espLabel">ESP32:</span> <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | 
+    <span id="camLabel">CAMERA:</span> <span id="camStatus" class="esp-disconnected">OFF</span> | 
+    <span id="trackLabel">TRACKING:</span> <span id="trackStatus" class="esp-disconnected">OFF</span> | 
+    <span id="fpsLabel">FPS:</span> <span id="fps">0</span>
 </div>
 
 <div id="terminal"></div>
@@ -189,26 +236,31 @@
 <!-- Camera Panel -->
 <div id="cameraPanel">
     <div id="cameraHeader">
-        <span>📷 VIDEO FEED [ADAPTIVE TRACKER]</span>
+        <span id="videoFeedLabel">📷 VIDEO FEED</span>
         <button id="stopTrackingBtn" onclick="stopTracking()" style="padding: 5px 10px; font-size: 12px; background: transparent; border: 1px solid #ff4757; color: #ff4757;">⏹ STOP TRACK</button>
     </div>
-    <div id="videoContainer">
-        <video id="videoElement" autoplay playsinline muted></video>
-        <canvas id="overlayCanvas"></canvas>
+    <div class="video-row">
+        <div class="video-container">
+            <video id="videoElement" autoplay playsinline muted></video>
+            <canvas id="overlayCanvas" class="overlay"></canvas>
+        </div>
+        <div class="mask-container">
+            <canvas id="maskCanvas"></canvas>
+        </div>
     </div>
     <!-- Tracking statistics -->
     <div id="trackingStats">
-        <div class="stat-item"><span class="stat-label">X</span><br><span id="xPos" class="stat-value">-</span></div>
-        <div class="stat-item"><span class="stat-label">Y</span><br><span id="yPos" class="stat-value">-</span></div>
-        <div class="stat-item"><span class="stat-label">Размер</span><br><span id="objectSize" class="stat-value">-</span></div>
-        <div class="stat-item"><span class="stat-label">Уверенность</span><br><span id="confidence" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="xLabel">X</span><br><span id="xPos" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="yLabel">Y</span><br><span id="yPos" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="sizeLabel">Размер</span><br><span id="objectSize" class="stat-value">-</span></div>
+        <div class="stat-item"><span class="stat-label" id="confLabel">Уверенность</span><br><span id="confidence" class="stat-value">-</span></div>
     </div>
 
-    <!-- Панель точной настройки цвета (как во втором коде) -->
+    <!-- Панель точной настройки цвета -->
     <div id="colorPanel">
         <div class="color-header">
-            <span>🎨 Точная настройка цвета</span>
-            <div class="mode-badge" id="currentColorName">Калибровка</div>
+            <span id="fineTuneLabel">🎨 Точная настройка цвета</span>
+            <div class="mode-badge" id="currentColorName">H:0 S:100 V:100</div>
         </div>
         <div style="display: flex; gap: 15px; align-items: center;">
             <div class="color-preview" id="colorPreview" style="background: #ff0000;"></div>
@@ -218,24 +270,26 @@
                     <button class="btn-small" id="applyColorBtn">✅ Применить</button>
                 </div>
                 <div style="margin-top: 8px; font-size: 11px; color: #aaa;">
-                    H: <span id="hueVal">0</span>° S: <span id="satVal">100</span>% V: <span id="valVal">100</span>%
+                    <span id="hueLabel">H</span>: <span id="hueVal">0</span>° 
+                    <span id="satLabel">S</span>: <span id="satVal">100</span>% 
+                    <span id="valLabel">V</span>: <span id="valVal">100</span>%
                 </div>
             </div>
         </div>
         <div class="slider-container">
-            <div class="slider-header"><span>Оттенок (Hue)</span><span id="hueSliderVal">0°</span></div>
+            <div class="slider-header"><span id="hueSliderLabel">Оттенок (Hue)</span><span id="hueSliderVal">0°</span></div>
             <input type="range" id="hueSlider" min="0" max="360" value="0" step="1">
         </div>
         <div class="slider-container">
-            <div class="slider-header"><span>Насыщенность</span><span id="satSliderVal">100%</span></div>
+            <div class="slider-header"><span id="satSliderLabel">Насыщенность</span><span id="satSliderVal">100%</span></div>
             <input type="range" id="satSlider" min="0" max="100" value="100" step="1">
         </div>
         <div class="slider-container">
-            <div class="slider-header"><span>Яркость</span><span id="valSliderVal">100%</span></div>
+            <div class="slider-header"><span id="valSliderLabel">Яркость</span><span id="valSliderVal">100%</span></div>
             <input type="range" id="valSlider" min="0" max="100" value="100" step="1">
         </div>
         <div class="slider-container">
-            <div class="slider-header"><span>Чувствительность</span><span id="sensVal">15</span></div>
+            <div class="slider-header"><span id="sensLabel">Чувствительность</span><span id="sensVal">15</span></div>
             <input type="range" id="sensSlider" min="5" max="40" value="15" step="1">
         </div>
     </div>
@@ -245,13 +299,13 @@
 <div class="controls" id="setup">
     <input type="password" id="key" placeholder="OpenRouter API Key (sk-or-...)">
     <input type="text" id="ip" placeholder="IP Робота (ESP32)">
-    <button onclick="boot()">ЗАПУСТИТЬ СИСТЕМУ</button>
+    <button id="bootBtn">ЗАПУСТИТЬ СИСТЕМУ</button>
 </div>
 
 <!-- ESP32 Control Panel -->
 <div id="espPanel">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <div>ESP32 CONTROLS:</div>
+        <div id="espControlsLabel">ESP32 CONTROLS:</div>
         <button onclick="testESP32Connection()" style="padding: 8px 12px; font-size: 12px;">🔧 TEST</button>
     </div>
     <div class="esp-controls">
@@ -271,7 +325,33 @@
 </div>
 
 <script>
-    // ========== DOM элементы ==========
+    // ========== Глобальные переменные ==========
+    let cvReady = false; // Флаг готовности OpenCV
+    let config = { key: '', ip: '', active: false, espConnected: false, lang: 'ru' };
+    let videoStream = null;
+    let hiddenCanvas = document.createElement('canvas');
+    let hiddenCtx = hiddenCanvas.getContext('2d');
+    let trackingActive = false;
+    let trackingLoopId = null;
+    let lastCommandTime = 0;
+    const COMMAND_COOLDOWN = 200;
+    let lastTimestamp = 0, frameCount = 0, fps = 0;
+    
+    // OpenCV specific
+    let src = null;          // исходный кадр (RGB)
+    let hsv = null;          // HSV представление
+    let mask = null;         // объединённая маска
+    let kernel = null;       // ядро для морфологии
+
+    // Цветовые диапазоны (массив объектов { hMin, hMax, sMin, sMax, vMin, vMax })
+    let colorRanges = [];
+
+    // Для выбора объекта из нескольких кандидатов
+    let candidates = [];          // массив контуров { contour, boundingRect, area }
+    let selectedCandidateIndex = -1; // -1 значит ещё не выбрано, либо выбранный
+    let awaitingUserChoice = false; // ожидание выбора пользователя
+
+    // DOM элементы
     const term = document.getElementById('terminal');
     const st = document.getElementById('st');
     const espStatus = document.getElementById('espStatus');
@@ -284,14 +364,17 @@
     const videoElement = document.getElementById('videoElement');
     const overlayCanvas = document.getElementById('overlayCanvas');
     const overlayCtx = overlayCanvas.getContext('2d');
+    const maskCanvas = document.getElementById('maskCanvas');
+    const maskCtx = maskCanvas.getContext('2d');
     const stopTrackingBtn = document.getElementById('stopTrackingBtn');
     const xPosEl = document.getElementById('xPos');
     const yPosEl = document.getElementById('yPos');
     const objectSizeEl = document.getElementById('objectSize');
     const confidenceEl = document.getElementById('confidence');
-
-    // Элементы панели цвета
-    const colorPanel = document.getElementById('colorPanel');
+    const langSelect = document.getElementById('langSelect');
+    const bootBtn = document.getElementById('bootBtn');
+    const calibrateBtn = document.getElementById('calibrateBtn');
+    const applyColorBtn = document.getElementById('applyColorBtn');
     const colorPreview = document.getElementById('colorPreview');
     const hueSlider = document.getElementById('hueSlider');
     const satSlider = document.getElementById('satSlider');
@@ -304,53 +387,113 @@
     const hueVal = document.getElementById('hueVal');
     const satVal = document.getElementById('satVal');
     const valVal = document.getElementById('valVal');
-    const calibrateBtn = document.getElementById('calibrateBtn');
-    const applyColorBtn = document.getElementById('applyColorBtn');
     const currentColorName = document.getElementById('currentColorName');
 
-    // ========== Конфигурация ==========
-    let config = { 
-        key: '', 
-        ip: '', 
-        active: false,
-        espConnected: false
+    // Текущий цвет для ручной настройки (один диапазон)
+    let currentColor = { h: 0, s: 100, v: 100, threshold: { h: 15, s: 30, v: 30 } };
+
+    // ========== Языковые ресурсы ==========
+    const translations = {
+        ru: {
+            status: "СТАТУС",
+            esp: "ESP32",
+            camera: "КАМЕРА",
+            tracking: "СЛЕЖЕНИЕ",
+            fps: "FPS",
+            videoFeed: "📷 ВИДЕО",
+            stopTrack: "⏹ СТОП",
+            x: "X",
+            y: "Y",
+            size: "Размер",
+            confidence: "Уверенность",
+            fineTune: "🎨 Точная настройка цвета",
+            hue: "Оттенок (Hue)",
+            saturation: "Насыщенность",
+            value: "Яркость",
+            sensitivity: "Чувствительность",
+            calibrate: "🔍 Калибровка (клик)",
+            apply: "✅ Применить",
+            boot: "ЗАПУСТИТЬ СИСТЕМУ",
+            espControls: "УПРАВЛЕНИЕ ESP32",
+            test: "ТЕСТ",
+            multipleObjects: "Найдено несколько объектов. Какой отслеживать?",
+            chooseOne: "Выберите один: ",
+            listeningName: "СЛУШАЮ (ИМЯ)",
+            listeningCmd: "СЛУШАЮ (КОМАНДА)",
+            thinking: "ДУМАЮ",
+            replying: "ОТВЕЧАЮ",
+            ready: "ГОТОВ",
+            error: "ОШИБКА"
+        },
+        en: {
+            status: "STATUS",
+            esp: "ESP32",
+            camera: "CAMERA",
+            tracking: "TRACKING",
+            fps: "FPS",
+            videoFeed: "📷 VIDEO FEED",
+            stopTrack: "⏹ STOP",
+            x: "X",
+            y: "Y",
+            size: "Size",
+            confidence: "Confidence",
+            fineTune: "🎨 Fine Tune Color",
+            hue: "Hue",
+            saturation: "Saturation",
+            value: "Value",
+            sensitivity: "Sensitivity",
+            calibrate: "🔍 Calibrate (click)",
+            apply: "✅ Apply",
+            boot: "BOOT SYSTEM",
+            espControls: "ESP32 CONTROLS",
+            test: "TEST",
+            multipleObjects: "Multiple objects found. Which one to track?",
+            chooseOne: "Choose one: ",
+            listeningName: "LISTENING (NAME)",
+            listeningCmd: "LISTENING (COMMAND)",
+            thinking: "THINKING",
+            replying: "REPLYING",
+            ready: "READY",
+            error: "ERROR"
+        }
     };
 
-    // Camera
-    let videoStream = null;
-    let hiddenCanvas = document.createElement('canvas');
-    let hiddenCtx = hiddenCanvas.getContext('2d');
+    // Функция обновления языка интерфейса
+    function updateLanguage(lang) {
+        config.lang = lang;
+        const t = translations[lang];
+        document.getElementById('statusLabel').innerText = t.status + ':';
+        document.getElementById('espLabel').innerText = t.esp + ':';
+        document.getElementById('camLabel').innerText = t.camera + ':';
+        document.getElementById('trackLabel').innerText = t.tracking + ':';
+        document.getElementById('fpsLabel').innerText = t.fps + ':';
+        document.getElementById('videoFeedLabel').innerText = t.videoFeed;
+        document.getElementById('stopTrackingBtn').innerText = t.stopTrack;
+        document.getElementById('xLabel').innerText = t.x;
+        document.getElementById('yLabel').innerText = t.y;
+        document.getElementById('sizeLabel').innerText = t.size;
+        document.getElementById('confLabel').innerText = t.confidence;
+        document.getElementById('fineTuneLabel').innerText = t.fineTune;
+        document.getElementById('hueSliderLabel').innerText = t.hue;
+        document.getElementById('satSliderLabel').innerText = t.saturation;
+        document.getElementById('valSliderLabel').innerText = t.value;
+        document.getElementById('sensLabel').innerText = t.sensitivity;
+        document.getElementById('calibrateBtn').innerText = t.calibrate;
+        document.getElementById('applyColorBtn').innerText = t.apply;
+        document.getElementById('bootBtn').innerText = t.boot;
+        document.getElementById('espControlsLabel').innerText = t.espControls;
+        // Обновим статусные строки, если они не в процессе
+        if (!config.active) st.innerText = t.ready;
+    }
 
-    // Tracking state (по типу второго кода)
-    let trackingActive = false;
-    let trackingLoopId = null;
-    let lastCommandTime = 0;
-    const COMMAND_COOLDOWN = 200;
-
-    // Текущий цвет и пороги (как во втором трекере)
-    let currentColor = {
-        h: 0,           // 0-360
-        s: 100,         // 0-100
-        v: 100,         // 0-100
-        threshold: { h: 15, s: 30, v: 30 }
-    };
-
-    // Флаг калибровки
-    let isCalibrating = false;
-
-    // FPS
-    let lastTimestamp = 0;
-    let frameCount = 0;
-    let fps = 0;
-
-    // OpenRouter model
-    const MODEL = "qwen/qwen3-vl-235b-a22b-thinking";
-
-    // Speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ru-RU';
-    recognition.continuous = false;
+    langSelect.addEventListener('change', (e) => {
+        updateLanguage(e.target.value);
+        // Перезапустим распознавание речи с новым языком, если активно
+        if (config.active) {
+            stopListening();
+            startWaitingForName();
+        }
+    });
 
     // ========== Вспомогательные функции ==========
     function log(msg, cl = '') {
@@ -367,24 +510,35 @@
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
         const diff = max - min;
-        let h = 0;
-        let s = 0;
-        const v = max;
+        let h = 0, s = 0, v = max;
         if (diff !== 0) {
             s = diff / max;
-            if (max === r) {
-                h = (g - b) / diff + (g < b ? 6 : 0);
-            } else if (max === g) {
-                h = (b - r) / diff + 2;
-            } else {
-                h = (r - g) / diff + 4;
-            }
+            if (max === r) h = (g - b) / diff + (g < b ? 6 : 0);
+            else if (max === g) h = (b - r) / diff + 2;
+            else h = (r - g) / diff + 4;
             h /= 6;
         }
         return { h: Math.round(h * 360), s, v };
     }
 
-    // HSV -> RGB (h 0-360, s 0-1, v 0-1) -> {r,g,b} 0-255
+    // Обновление UI цвета
+    function updateColorUI() {
+        hueSlider.value = currentColor.h;
+        satSlider.value = currentColor.s;
+        valSlider.value = currentColor.v;
+        sensSlider.value = currentColor.threshold.h;
+        hueSliderVal.textContent = currentColor.h + '°';
+        satSliderVal.textContent = currentColor.s + '%';
+        valSliderVal.textContent = currentColor.v + '%';
+        sensVal.textContent = currentColor.threshold.h;
+        hueVal.textContent = currentColor.h;
+        satVal.textContent = currentColor.s;
+        valVal.textContent = currentColor.v;
+        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
+        colorPreview.style.backgroundColor = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+        currentColorName.textContent = `H:${currentColor.h} S:${currentColor.s} V:${currentColor.v}`;
+    }
+
     function hsvToRgb(h, s, v) {
         let r, g, b;
         const hi = Math.floor(h / 60) % 6;
@@ -400,180 +554,15 @@
             case 4: r = t; g = p; b = v; break;
             case 5: r = v; g = p; b = q; break;
         }
-        return {
-            r: Math.round(r * 255),
-            g: Math.round(g * 255),
-            b: Math.round(b * 255)
-        };
+        return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
     }
 
-    // Обновление preview цвета и слайдеров
-    function updateColorUI() {
-        hueSlider.value = currentColor.h;
-        satSlider.value = currentColor.s;
-        valSlider.value = currentColor.v;
-        sensSlider.value = currentColor.threshold.h; // используем h как основу для чувствительности
-
-        hueSliderVal.textContent = currentColor.h + '°';
-        satSliderVal.textContent = currentColor.s + '%';
-        valSliderVal.textContent = currentColor.v + '%';
-        sensVal.textContent = currentColor.threshold.h;
-
-        hueVal.textContent = currentColor.h;
-        satVal.textContent = currentColor.s;
-        valVal.textContent = currentColor.v;
-
-        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
-        colorPreview.style.backgroundColor = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
-        currentColorName.textContent = `H:${currentColor.h}° S:${currentColor.s}% V:${currentColor.v}%`;
-    }
-
-    // Обновление порогов из чувствительности
-    function updateThresholdsFromSensitivity() {
-        const sens = parseInt(sensSlider.value);
-        currentColor.threshold = {
-            h: sens,
-            s: Math.min(50, sens * 2),
-            v: Math.min(50, sens * 2)
-        };
-        sensVal.textContent = sens;
-    }
-
-    // Поиск одного объекта по текущему цвету (алгоритм из второго кода)
-    function findSingleColorObject(data, width, height) {
-        let totalX = 0, totalY = 0, count = 0;
-        let minX = width, minY = height, maxX = 0, maxY = 0;
-
-        const { h: targetH, s: targetS, v: targetV } = currentColor;
-        const th = currentColor.threshold;
-
-        for (let y = 0; y < height; y += 2) {
-            for (let x = 0; x < width; x += 2) {
-                const index = (y * width + x) * 4;
-                const r = data[index];
-                const g = data[index + 1];
-                const b = data[index + 2];
-
-                const hsv = rgbToHsv(r, g, b);
-                const h = hsv.h;
-                const s = Math.round(hsv.s * 100);
-                const v = Math.round(hsv.v * 100);
-
-                // Расстояние по оттенку с учётом цикличности
-                const hDiff = Math.abs(h - targetH);
-                const hueDistance = Math.min(hDiff, 360 - hDiff);
-                const sDiff = Math.abs(s - targetS);
-                const vDiff = Math.abs(v - targetV);
-
-                if (hueDistance <= th.h && sDiff <= th.s && vDiff <= th.v) {
-                    totalX += x;
-                    totalY += y;
-                    count++;
-                    minX = Math.min(minX, x);
-                    minY = Math.min(minY, y);
-                    maxX = Math.max(maxX, x);
-                    maxY = Math.max(maxY, y);
-                }
-            }
-        }
-
-        if (count < 30) return null; // минимальная площадь
-
-        const centerX = Math.round(totalX / count);
-        const centerY = Math.round(totalY / count);
-        const objectWidth = maxX - minX;
-        const objectHeight = maxY - minY;
-        const confidence = Math.min(100, Math.round((count / (width * height / 4)) * 1000));
-
-        return {
-            centerX, centerY,
-            width: objectWidth,
-            height: objectHeight,
-            confidence,
-            pixelCount: count,
-            minX, minY, maxX, maxY
-        };
-    }
-
-    // Отрисовка результата (стилизовано как в первом коде, но с использованием текущего цвета)
-    function drawTrackingOverlay(result) {
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        if (!result) return;
-
-        const { centerX, centerY, width, height, confidence, minX, minY, maxX, maxY } = result;
-        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
-        const colorStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
-
-        // Рамка
-        overlayCtx.strokeStyle = colorStyle;
-        overlayCtx.lineWidth = 3;
-        overlayCtx.strokeRect(minX, minY, width, height);
-
-        // Центр
-        overlayCtx.fillStyle = colorStyle;
-        overlayCtx.beginPath();
-        overlayCtx.arc(centerX, centerY, 8, 0, Math.PI * 2);
-        overlayCtx.fill();
-
-        // Перекрестие
-        overlayCtx.strokeStyle = colorStyle;
-        overlayCtx.lineWidth = 2;
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(centerX - 20, centerY);
-        overlayCtx.lineTo(centerX + 20, centerY);
-        overlayCtx.moveTo(centerX, centerY - 20);
-        overlayCtx.lineTo(centerX, centerY + 20);
-        overlayCtx.stroke();
-
-        // Пунктирные линии к краям
-        overlayCtx.strokeStyle = colorStyle;
-        overlayCtx.lineWidth = 1;
-        overlayCtx.setLineDash([5, 5]);
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(centerX, centerY);
-        overlayCtx.lineTo(centerX, 0);
-        overlayCtx.stroke();
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(centerX, centerY);
-        overlayCtx.lineTo(0, centerY);
-        overlayCtx.stroke();
-        overlayCtx.setLineDash([]);
-
-        // Подпись уверенности
-        overlayCtx.font = 'bold 14px "Courier New", monospace';
-        const textWidth = overlayCtx.measureText(`${confidence}%`).width;
-        overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        overlayCtx.fillRect(centerX - textWidth/2 - 10, minY - 30, textWidth + 20, 25);
-        overlayCtx.fillStyle = '#fff';
-        overlayCtx.textAlign = 'center';
-        overlayCtx.fillText(`${confidence}%`, centerX, minY - 10);
-
-        // Информация о цвете
-        overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        overlayCtx.fillRect(10, 10, 180, 60);
-        overlayCtx.fillStyle = colorStyle;
-        overlayCtx.fillRect(20, 20, 30, 30);
-        overlayCtx.fillStyle = '#fff';
-        overlayCtx.font = 'bold 12px "Courier New", monospace';
-        overlayCtx.textAlign = 'left';
-        overlayCtx.fillText('TRACKING', 60, 30);
-        overlayCtx.font = '10px "Courier New", monospace';
-        overlayCtx.fillText(`Уверенность: ${confidence}%`, 60, 45);
-        overlayCtx.fillText(`H:${currentColor.h} S:${currentColor.s} V:${currentColor.v}`, 60, 60);
-    }
-
-    function updateTrackingStats(result) {
-        if (result) {
-            xPosEl.textContent = result.centerX;
-            yPosEl.textContent = result.centerY;
-            objectSizeEl.textContent = `${result.width}×${result.height}`;
-            confidenceEl.textContent = `${result.confidence}%`;
-        } else {
-            xPosEl.textContent = '-';
-            yPosEl.textContent = '-';
-            objectSizeEl.textContent = '-';
-            confidenceEl.textContent = '-';
-        }
+    // ========== OpenCV.js ready ==========
+    function onOpenCvReady() {
+        cvReady = true;
+        log('✅ OpenCV.js загружен', 'sys');
+        // Можно инициализировать матрицы заранее
+        kernel = cv.Mat.ones(5, 5, cv.CV_8U);
     }
 
     // ========== Инициализация камеры ==========
@@ -590,6 +579,8 @@
                 const height = videoElement.videoHeight;
                 overlayCanvas.width = width;
                 overlayCanvas.height = height;
+                maskCanvas.width = width;
+                maskCanvas.height = height;
                 hiddenCanvas.width = width;
                 hiddenCanvas.height = height;
                 log(`📐 Размер видео: ${width}x${height}`, 'sys');
@@ -598,12 +589,14 @@
             if (videoElement.videoWidth) {
                 overlayCanvas.width = videoElement.videoWidth;
                 overlayCanvas.height = videoElement.videoHeight;
+                maskCanvas.width = videoElement.videoWidth;
+                maskCanvas.height = videoElement.videoHeight;
                 hiddenCanvas.width = videoElement.videoWidth;
                 hiddenCanvas.height = videoElement.videoHeight;
             }
 
             cameraPanel.style.display = 'flex';
-            colorPanel.style.display = 'flex'; // показываем панель настройки
+            colorPanel.style.display = 'flex';
             camStatus.textContent = 'ON';
             camStatus.className = 'esp-connected';
             log('✅ Камера инициализирована', 'sys');
@@ -624,43 +617,263 @@
         return hiddenCanvas.toDataURL('image/jpeg', 0.7);
     }
 
-    // ========== Функции трекинга ==========
-    // Преобразует диапазон от ИИ в currentColor и пороги
-    function setColorFromRange(hMin, hMax, sMin, sMax, vMin, vMax) {
-        // Вычисляем средние значения
-        let h = Math.round((hMin + hMax) / 2);
-        // Корректировка для красного, если диапазон переходит через 0
-        if (hMin > hMax) {
-            // Например, 350-10 -> среднее должно быть около 0? возьмём по модулю
-            h = Math.round(((hMin + hMax + 360) / 2) % 360);
-        }
-        const s = Math.round((sMin + sMax) / 2);
-        const v = Math.round((vMin + vMax) / 2);
-        const thH = Math.max(5, Math.round((hMax - hMin + (hMin > hMax ? 360 : 0)) / 2));
-        const thS = Math.max(10, Math.round((sMax - sMin) / 2));
-        const thV = Math.max(10, Math.round((vMax - vMin) / 2));
-
+    // ========== Функции трекинга через OpenCV ==========
+    // Преобразует массив диапазонов от ИИ в цветовые диапазоны
+    function setColorRangesFromAI(rangesArray) {
+        colorRanges = rangesArray.map(r => {
+            // Ожидается, что r это объект с полями hMin,hMax,sMin,sMax,vMin,vMax (s,v в 0-255)
+            // Переводим s,v в 0-100 для внутреннего использования? Но OpenCV работает с 0-255.
+            // Оставим как есть, но будем помнить, что слайдеры у нас в процентах.
+            // Для согласования: при применении слайдеров мы будем преобразовывать проценты в 0-255.
+            return {
+                hMin: r.hMin,
+                hMax: r.hMax,
+                sMin: r.sMin,
+                sMax: r.sMax,
+                vMin: r.vMin,
+                vMax: r.vMax
+            };
+        });
+        if (colorRanges.length === 0) return;
+        // Для ручной настройки возьмём среднее первого диапазона (для отображения)
+        const first = colorRanges[0];
+        let h = Math.round((first.hMin + first.hMax) / 2);
+        if (first.hMin > first.hMax) h = Math.round(((first.hMin + first.hMax + 360) / 2) % 360);
         currentColor.h = h;
-        currentColor.s = s;
-        currentColor.v = v;
-        currentColor.threshold = { h: thH, s: thS, v: thV };
-
+        currentColor.s = Math.round((first.sMin + first.sMax) / 2 / 2.55); // в проценты
+        currentColor.v = Math.round((first.vMin + first.vMax) / 2 / 2.55);
+        currentColor.threshold.h = Math.max(5, Math.round((first.hMax - first.hMin + (first.hMin > first.hMax ? 360 : 0)) / 2));
         updateColorUI();
-        log(`🎯 Цвет установлен: H=${h} S=${s} V=${v} | пороги: H±${thH} S±${thS} V±${thV}`, 'sys');
     }
 
-    function startTracking(hMin, hMax, sMin, sMax, vMin, vMax) {
-        if (trackingActive) stopTracking();
+    // Основная функция обработки кадра с OpenCV
+    function processFrameWithOpenCV() {
+        if (!cvReady || !trackingActive || !videoElement || videoElement.readyState < 2) return;
 
-        setColorFromRange(hMin, hMax, sMin, sMax, vMin, vMax);
+        const width = videoElement.videoWidth;
+        const height = videoElement.videoHeight;
+        if (width === 0 || height === 0) return;
+
+        // Захватываем кадр в hiddenCanvas
+        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
+        const imageData = hiddenCtx.getImageData(0, 0, width, height);
+
+        // Создаём матрицу OpenCV из данных RGBA
+        src = cv.matFromImageData(imageData);
+        // Конвертируем в HSV
+        hsv = new cv.Mat();
+        cv.cvtColor(src, hsv, cv.COLOR_RGB2HSV);
+
+        // Создаём объединённую маску
+        mask = new cv.Mat.zeros(height, width, cv.CV_8UC1);
+
+        // Для каждого диапазона строим маску и объединяем
+        for (let range of colorRanges) {
+            let lower = new cv.Mat(height, width, cv.CV_8UC3, [range.hMin/2, range.sMin, range.vMin, 0]); // OpenCV Hue диапазон 0-180
+            let upper = new cv.Mat(height, width, cv.CV_8UC3, [range.hMax/2, range.sMax, range.vMax, 0]);
+            let tempMask = new cv.Mat();
+            cv.inRange(hsv, lower, upper, tempMask);
+            cv.bitwiseOr(mask, tempMask, mask);
+            lower.delete(); upper.delete(); tempMask.delete();
+        }
+
+        // Морфологические операции для очистки маски
+        cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel);
+        cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
+
+        // Отображаем маску на соседнем canvas
+        let maskImageData = new ImageData(new Uint8ClampedArray(mask.data), width, height);
+        maskCtx.putImageData(maskImageData, 0, 0);
+
+        // Находим контуры
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+        // Собираем кандидатов
+        candidates = [];
+        for (let i = 0; i < contours.size(); i++) {
+            let contour = contours.get(i);
+            let area = cv.contourArea(contour);
+            if (area < 500) continue; // минимальная площадь
+            let rect = cv.boundingRect(contour);
+            candidates.push({
+                contour: contour,
+                boundingRect: rect,
+                area: area,
+                index: i
+            });
+        }
+
+        // Если есть кандидаты
+        if (candidates.length > 0) {
+            // Если ожидаем выбора пользователя, не выбираем автоматически
+            if (!awaitingUserChoice) {
+                if (candidates.length === 1) {
+                    selectedCandidateIndex = 0;
+                } else {
+                    // Несколько кандидатов - запускаем процесс выбора через ИИ
+                    if (selectedCandidateIndex === -1) {
+                        // Ещё не выбрано, запрашиваем у ИИ описания форм
+                        askAIForShapeDescriptions(candidates);
+                        awaitingUserChoice = true;
+                    }
+                }
+            }
+
+            // Рисуем все рамки на оверлее
+            overlayCtx.clearRect(0, 0, width, height);
+            for (let i = 0; i < candidates.length; i++) {
+                let r = candidates[i].boundingRect;
+                overlayCtx.strokeStyle = (i === selectedCandidateIndex) ? '#00ff9d' : '#ffaa00';
+                overlayCtx.lineWidth = (i === selectedCandidateIndex) ? 3 : 1;
+                overlayCtx.strokeRect(r.x, r.y, r.width, r.height);
+                // Подпись с номером или описанием
+                overlayCtx.fillStyle = 'white';
+                overlayCtx.font = '12px monospace';
+                overlayCtx.fillText(`#${i+1}`, r.x, r.y-5);
+            }
+
+            // Если выбран конкретный объект, обновляем статистику и команды ESP32
+            if (selectedCandidateIndex >= 0 && selectedCandidateIndex < candidates.length) {
+                let r = candidates[selectedCandidateIndex].boundingRect;
+                let centerX = r.x + r.width/2;
+                let centerY = r.y + r.height/2;
+                xPosEl.textContent = Math.round(centerX);
+                yPosEl.textContent = Math.round(centerY);
+                objectSizeEl.textContent = `${r.width}×${r.height}`;
+                let conf = Math.min(100, Math.round(candidates[selectedCandidateIndex].area / (width*height) * 1000));
+                confidenceEl.textContent = conf + '%';
+                // Отправка команд на ESP32
+                if (config.espConnected) {
+                    const frameCenterX = width / 2;
+                    const threshold = width * 0.1;
+                    const now = performance.now();
+                    if (now - lastCommandTime > COMMAND_COOLDOWN) {
+                        let command = null;
+                        if (centerX < frameCenterX - threshold) command = 'ROTATE_LEFT|30|150';
+                        else if (centerX > frameCenterX + threshold) command = 'ROTATE_RIGHT|30|150';
+                        if (command) {
+                            sendESP32Command(command);
+                            lastCommandTime = now;
+                        }
+                    }
+                }
+            } else {
+                xPosEl.textContent = '-'; yPosEl.textContent = '-';
+                objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
+            }
+        } else {
+            overlayCtx.clearRect(0, 0, width, height);
+            xPosEl.textContent = '-'; yPosEl.textContent = '-';
+            objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
+        }
+
+        // Очистка памяти OpenCV
+        src.delete(); hsv.delete(); mask.delete(); contours.delete(); hierarchy.delete();
+    }
+
+    // Функция для запроса к ИИ описаний форм кандидатов
+    async function askAIForShapeDescriptions(candidates) {
+        if (!config.key) return;
+        // Для каждого кандидата вырезаем изображение и отправляем в ИИ
+        let descriptions = [];
+        for (let i = 0; i < Math.min(candidates.length, 3); i++) { // ограничим тремя, чтобы не перегружать
+            let r = candidates[i].boundingRect;
+            // Вырезаем область из hiddenCanvas (уже есть текущий кадр)
+            let candidateCanvas = document.createElement('canvas');
+            candidateCanvas.width = r.width;
+            candidateCanvas.height = r.height;
+            let ctx = candidateCanvas.getContext('2d');
+            ctx.drawImage(hiddenCanvas, r.x, r.y, r.width, r.height, 0, 0, r.width, r.height);
+            let dataURL = candidateCanvas.toDataURL('image/jpeg', 0.5);
+            // Отправляем запрос к OpenRouter
+            try {
+                let response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.key}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL,
+                        messages: [
+                            { role: 'system', content: 'Ты помогаешь идентифицировать объекты по форме. Опиши объект на изображении одним-двумя словами (например, "круглый", "прямоугольный", "с ручкой"). Ответь только на языке пользователя.' },
+                            { role: 'user', content: [{ type: 'image_url', image_url: { url: dataURL } }] }
+                        ],
+                        max_tokens: 20
+                    })
+                });
+                let data = await response.json();
+                let desc = data.choices[0].message.content.trim();
+                descriptions.push(desc);
+            } catch (e) {
+                descriptions.push('неизвестно');
+            }
+        }
+        // Формируем сообщение пользователю
+        let t = translations[config.lang];
+        let message = t.multipleObjects + '\n';
+        for (let i = 0; i < descriptions.length; i++) {
+            message += `${i+1}: ${descriptions[i]}\n`;
+        }
+        message += t.chooseOne;
+        log(message, 'ai');
+        // Голосом озвучиваем
+        speak(message, () => {
+            // После озвучки начинаем слушать ответ
+            st.innerText = t.listeningCmd;
+            startListeningForChoice(candidates.length);
+        });
+    }
+
+    // Слушаем голосовой выбор пользователя
+    function startListeningForChoice(numCandidates) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recog = new SpeechRecognition();
+        recog.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+        recog.continuous = false;
+        recog.onresult = (event) => {
+            let text = event.results[0][0].transcript.toLowerCase();
+            log(`<span class="user">${text}</span>`);
+            // Пытаемся извлечь номер
+            let choice = -1;
+            if (config.lang === 'ru') {
+                if (text.includes('первый') || text.includes('1')) choice = 0;
+                else if (text.includes('второй') || text.includes('2')) choice = 1;
+                else if (text.includes('третий') || text.includes('3')) choice = 2;
+            } else {
+                if (text.includes('first') || text.includes('1')) choice = 0;
+                else if (text.includes('second') || text.includes('2')) choice = 1;
+                else if (text.includes('third') || text.includes('3')) choice = 2;
+            }
+            if (choice >= 0 && choice < numCandidates) {
+                selectedCandidateIndex = choice;
+                awaitingUserChoice = false;
+                log(`✅ Выбран объект #${choice+1}`, 'sys');
+                speak(translations[config.lang].tracking + ' #' + (choice+1));
+            } else {
+                // Если не распознали, повторим
+                speak(translations[config.lang].chooseOne, () => startListeningForChoice(numCandidates));
+            }
+        };
+        recog.onerror = () => setTimeout(() => startListeningForChoice(numCandidates), 1000);
+        recog.start();
+    }
+
+    // ========== Запуск/остановка трекинга ==========
+    function startTracking(rangesArray) {
+        if (trackingActive) stopTracking();
+        setColorRangesFromAI(rangesArray);
         trackingActive = true;
         trackStatus.textContent = 'ON';
         trackStatus.className = 'esp-connected';
-        log(`🎯 Режим слежения активирован.`, 'sys');
-
+        selectedCandidateIndex = -1; // сброс выбора
+        awaitingUserChoice = false;
+        log(`🎯 Режим слежения активирован. Диапазонов: ${colorRanges.length}`, 'sys');
         lastTimestamp = performance.now();
         frameCount = 0;
-        trackingLoopId = requestAnimationFrame(trackingLoop);
+        trackingLoop();
     }
 
     function stopTracking() {
@@ -673,25 +886,14 @@
                 trackingLoopId = null;
             }
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
             updateTrackingStats(null);
             log('⏹ Режим слежения отключен', 'sys');
         }
     }
 
     function trackingLoop() {
-        if (!trackingActive || !videoElement || videoElement.readyState < 2) {
-            trackingLoopId = requestAnimationFrame(trackingLoop);
-            return;
-        }
-
-        const width = videoElement.videoWidth;
-        const height = videoElement.videoHeight;
-        if (width === 0 || height === 0) {
-            trackingLoopId = requestAnimationFrame(trackingLoop);
-            return;
-        }
-
-        // FPS
+        if (!trackingActive) return;
         const now = performance.now();
         frameCount++;
         if (now - lastTimestamp >= 1000) {
@@ -700,36 +902,13 @@
             frameCount = 0;
             lastTimestamp = now;
         }
-
-        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
-        const imageData = hiddenCtx.getImageData(0, 0, width, height);
-        const result = findSingleColorObject(imageData.data, width, height);
-
-        drawTrackingOverlay(result);
-        updateTrackingStats(result);
-
-        // Отправка команд на ESP32 при отклонении от центра
-        if (result && config.espConnected) {
-            const frameCenterX = width / 2;
-            const threshold = width * 0.1;
-            if (now - lastCommandTime > COMMAND_COOLDOWN) {
-                let command = null;
-                if (result.centerX < frameCenterX - threshold) {
-                    command = 'ROTATE_LEFT|30|150';
-                } else if (result.centerX > frameCenterX + threshold) {
-                    command = 'ROTATE_RIGHT|30|150';
-                }
-                if (command) {
-                    sendESP32Command(command);
-                    lastCommandTime = now;
-                }
-            }
-        }
-
+        processFrameWithOpenCV();
         trackingLoopId = requestAnimationFrame(trackingLoop);
     }
 
-    // ========== ESP32 ==========
+    function updateTrackingStats(result) { /* больше не используется, всё в processFrame */ }
+
+    // ========== ESP32 Communication ==========
     async function connectToESP32() {
         log(`Проверяю подключение к ESP32: ${config.ip}`, 'sys');
         try {
@@ -742,7 +921,7 @@
             espStatus.className = 'esp-connected';
             espPanel.style.display = 'block';
             log('✅ Успешно подключено к ESP32!', 'sys');
-            speak('Подключение к роботу установлено.');
+            speak(translations[config.lang].esp + ' connected');
         } catch (error) {
             log('❌ Не удалось подключиться к ESP32. Команды будут выводиться только в терминал.', 'sys');
             espStatus.textContent = 'ERROR';
@@ -777,14 +956,15 @@
         log(`📤 Команда отправлена на ESP32: ${command}`, 'sys');
     }
 
-    // ========== Калибровка кликом ==========
-    function startCalibration() {
+    // ========== Калибровка кликом (один диапазон) ==========
+    let isCalibrating = false;
+    calibrateBtn.addEventListener('click', () => {
         if (!videoElement.srcObject) return;
         isCalibrating = true;
-        log('🔍 Режим калибровки: кликните на объект в видео', 'sys');
+        log(translations[config.lang].calibrate, 'sys');
         videoElement.style.cursor = 'crosshair';
         videoElement.addEventListener('click', handleCalibrationClick, { once: true });
-    }
+    });
 
     function handleCalibrationClick(event) {
         const rect = videoElement.getBoundingClientRect();
@@ -794,101 +974,117 @@
         const scaleY = videoElement.videoHeight / rect.height;
         const imageX = Math.floor(x * scaleX);
         const imageY = Math.floor(y * scaleY);
-
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = videoElement.videoWidth;
-        tempCanvas.height = videoElement.videoHeight;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(videoElement, 0, 0);
-        const pixel = tempCtx.getImageData(imageX, imageY, 1, 1).data;
-        const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
-
-        currentColor.h = hsv.h;
-        currentColor.s = Math.round(hsv.s * 100);
-        currentColor.v = Math.round(hsv.v * 100);
-        // Сброс порогов на стандартные
+        const size = 3; // область 7x7
+        let sumH = 0, sumS = 0, sumV = 0, count = 0;
+        hiddenCtx.drawImage(videoElement, 0, 0);
+        for (let dy = -size; dy <= size; dy++) {
+            for (let dx = -size; dx <= size; dx++) {
+                const px = imageX + dx;
+                const py = imageY + dy;
+                if (px >= 0 && px < videoElement.videoWidth && py >= 0 && py < videoElement.videoHeight) {
+                    const pixel = hiddenCtx.getImageData(px, py, 1, 1).data;
+                    const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+                    sumH += hsv.h;
+                    sumS += hsv.s;
+                    sumV += hsv.v;
+                    count++;
+                }
+            }
+        }
+        if (count === 0) return;
+        currentColor.h = Math.round(sumH / count);
+        currentColor.s = Math.round((sumS / count) * 100);
+        currentColor.v = Math.round((sumV / count) * 100);
         currentColor.threshold = { h: 15, s: 30, v: 30 };
         updateColorUI();
-
+        // Создаём один диапазон
+        let hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
+        let hMax = (currentColor.h + currentColor.threshold.h) % 360;
+        let sMin = Math.max(0, Math.round(currentColor.s * 2.55 - currentColor.threshold.s * 2.55));
+        let sMax = Math.min(255, Math.round(currentColor.s * 2.55 + currentColor.threshold.s * 2.55));
+        let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
+        let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
+        colorRanges = [{ hMin, hMax, sMin, sMax, vMin, vMax }];
         log(`✅ Цвет откалиброван: H=${currentColor.h}°, S=${currentColor.s}%, V=${currentColor.v}%`, 'sys');
         videoElement.style.cursor = 'default';
         isCalibrating = false;
     }
 
-    // Применить текущие настройки цвета (запустить трекинг с ними)
-    function applyColorAndStartTracking() {
-        if (!trackingActive) {
-            // Запускаем трекинг с текущим цветом и порогами (преобразуем в диапазон)
-            const hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
-            const hMax = (currentColor.h + currentColor.threshold.h) % 360;
-            const sMin = Math.max(0, currentColor.s - currentColor.threshold.s);
-            const sMax = Math.min(100, currentColor.s + currentColor.threshold.s);
-            const vMin = Math.max(0, currentColor.v - currentColor.threshold.v);
-            const vMax = Math.min(100, currentColor.v + currentColor.threshold.v);
-            startTracking(hMin, hMax, sMin, sMax, vMin, vMax);
-        } else {
-            log('Сначала остановите текущее слежение', 'sys');
-        }
-    }
+    applyColorBtn.addEventListener('click', () => {
+        if (trackingActive) stopTracking();
+        // Создаём диапазон из текущих настроек
+        let hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
+        let hMax = (currentColor.h + currentColor.threshold.h) % 360;
+        let sMin = Math.max(0, Math.round(currentColor.s * 2.55 - currentColor.threshold.s * 2.55));
+        let sMax = Math.min(255, Math.round(currentColor.s * 2.55 + currentColor.threshold.s * 2.55));
+        let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
+        let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
+        colorRanges = [{ hMin, hMax, sMin, sMax, vMin, vMax }];
+        startTracking(colorRanges);
+    });
 
     // ========== Голосовой интерфейс и ИИ ==========
+    const MODEL = "qwen/qwen3-vl-235b-a22b-thinking";
+    let recognition = null;
+
     function boot() {
         config.key = document.getElementById('key').value.trim();
         config.ip = document.getElementById('ip').value.trim();
         if (!config.key) return alert('Введите API ключ OpenRouter!');
-
         setupPanel.style.display = 'none';
         config.active = true;
-
-        log('Инициализация Trinity с адаптивным трекером...', 'sys');
+        updateLanguage(langSelect.value); // установим язык
+        log('Инициализация Trinity с OpenCV трекером...', 'sys');
         initCamera();
         if (config.ip) connectToESP32();
-
-        speak('Система активирована. Жду команды.', startWaitingForName);
+        speak(translations[config.lang].ready, startWaitingForName);
     }
 
     function startWaitingForName() {
         if (!config.active) return;
-        st.innerText = 'LISTENING (NAME)';
+        st.innerText = translations[config.lang].listeningName;
         st.style.color = '#ffaa00';
-
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+        recognition.continuous = false;
         recognition.onresult = (event) => {
             const text = event.results[0][0].transcript.toLowerCase();
-            log(`<span class="user">Слышу: "${text}"</span>`);
+            log(`<span class="user">${text}</span>`);
             if (text.includes('пиксель') || text.includes('pixel')) {
                 handleTrigger();
             } else {
                 safeRestart();
             }
         };
-        recognition.onend = () => { if (st.innerText === 'LISTENING (NAME)') safeRestart(); };
+        recognition.onend = () => { if (st.innerText === translations[config.lang].listeningName) safeRestart(); };
         try { recognition.start(); } catch (e) { setTimeout(safeRestart, 100); }
     }
 
     function handleTrigger() {
-        st.innerText = 'REPLYING';
-        const reply = 'Слушаю тебя!';
+        st.innerText = translations[config.lang].replying;
+        const reply = config.lang === 'ru' ? 'Слушаю тебя!' : 'I\'m listening!';
         log(`PIXEL: ${reply}`, 'sys');
         speak(reply, () => {
-            st.innerText = 'LISTENING (CMD)';
-            log('Говорите команду...', 'sys');
+            st.innerText = translations[config.lang].listeningCmd;
+            log(translations[config.lang].listeningCmd, 'sys');
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
+            recognition.continuous = false;
             recognition.onresult = (event) => {
                 const cmdText = event.results[0][0].transcript;
                 log(`<span class="user">ЗАПРОС: "${cmdText}"</span>`);
                 askTrinity(cmdText);
             };
-            recognition.onend = () => { if (st.innerText === 'LISTENING (CMD)') safeRestart(); };
+            recognition.onend = () => { if (st.innerText === translations[config.lang].listeningCmd) safeRestart(); };
             try { recognition.start(); } catch (e) { safeRestart(); }
         });
     }
 
     async function askTrinity(prompt) {
-        st.innerText = 'THINKING';
+        st.innerText = translations[config.lang].thinking;
         log('Trinity анализирует (с камерой)...', 'sys');
-
         const imageDataUrl = await captureImage();
         if (imageDataUrl) log('📸 Кадр с камеры захвачен', 'sys');
-
         let userContent;
         if (imageDataUrl) {
             userContent = [
@@ -912,44 +1108,22 @@
                     messages: [
                         {
                             role: 'system',
-                            content: `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай ТОЛЬКО на русском языке.
+                            content: `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай на языке пользователя (ru или en).
 
 Тебе может быть предоставлено изображение с камеры робота. 
-- Если пользователь спрашивает о том, что робот видит (например: "что ты видишь?", "какая обстановка?"), используй информацию из изображения для ответа.
-- Если вопрос не связан с визуальной информацией, отвечай как обычно, НЕ упоминая наличие фото.
+- Если пользователь просит следить за объектом, ты должен проанализировать сцену и выбрать такой цвет (или несколько цветов) объекта, который максимально контрастирует с фоном и не встречается у других объектов.
+- Верни команду TRACK_START с одним или несколькими диапазонами HSV (H 0-360, S 0-255, V 0-255). Диапазоны разделяй символом '|'. Например: TRACK_START|0,15,100,255,100,255|25,35,80,200,50,150
+- Если объект имеет несколько цветов, укажи несколько диапазонов.
+- Если нужно остановить слежение, используй TRACK_STOP.
+- Для других команд используй стандартные: MOVE_FORWARD|SPEED|TIME и т.д.
 
-Для включения режима слежения за объектом пользователь может сказать, например: "следи за красной чашкой". В этом случае ты должен:
-1. Проанализировать изображение и определить объект, за которым нужно следить.
-2. ВАЖНО: выбери такой цвет объекта, который максимально контрастирует с фоном и не встречается у других объектов на изображении. Например, если фон жёлтый, а объект жёлто-чёрный, выбери чёрный цвет. Если объект однотонный, но на фоне есть похожий цвет, выбери другой оттенок (если объект многоцветный) или сузь диапазон до уникального оттенка.
-3. Определи диапазон HSV (Hue 0-360, Saturation 0-255, Value 0-255) для выбранного цвета. Диапазон должен быть узким (например, допуск по H 10-15, по S и V 20-30), чтобы не захватывать фон. Учти, что красный цвет может быть в двух диапазонах (около 0 и 360).
-4. В ответе, помимо текста, добавь специальную команду: 
-   TRACK_START|hMin,hMax,sMin,sMax,vMin,vMax
-   Например: TRACK_START|0,15,100,255,100,255
-5. Если нужно остановить слежение, используй команду TRACK_STOP.
-
-Доступные команды для управления роботом:
-- MOVE_FORWARD|SPEED|TIME
-- MOVE_BACKWARD|SPEED|TIME
-- ROTATE_LEFT|DEGREES|SPEED
-- ROTATE_RIGHT|DEGREES|SPEED
-- STOP
-- LED_ON / LED_OFF
-- WAIT_<секунды>
-
-Формат ответа строго такой:
-Text: [твой текстовый ответ на русском языке]
+Формат ответа:
+Text: [твой текстовый ответ]
 Commands: [команды через ; или null]
 
-Пример для слежения:
-Пользователь: "Пиксель, следи за синим мячом"
-Ответ:
-Text: Хорошо, я буду следить за синим мячом.
-Commands: TRACK_START|200,220,100,255,100,255; MOVE_FORWARD|30|1000
-
-ВНИМАНИЕ:
-- Команды НЕ озвучиваются, только пишутся в терминал
-- Всегда отвечай на русском
-- Не используй смайлики в тексте`
+Пример:
+Text: Хорошо, я буду следить за сине-красным мячом.
+Commands: TRACK_START|200,220,100,255,100,255|0,15,100,255,100,255; MOVE_FORWARD|30|1000`
                         },
                         { role: 'user', content: userContent }
                     ],
@@ -973,11 +1147,20 @@ Commands: TRACK_START|200,220,100,255,100,255; MOVE_FORWARD|30|1000
                 for (let cmd of commands) {
                     cmd = cmd.trim();
                     if (cmd.startsWith('TRACK_START|')) {
-                        const paramsPart = cmd.substring('TRACK_START|'.length);
-                        const params = paramsPart.split(',').map(Number);
-                        if (params.length === 6) {
-                            const [hMin, hMax, sMin, sMax, vMin, vMax] = params;
-                            startTracking(hMin, hMax, sMin, sMax, vMin, vMax);
+                        const parts = cmd.split('|').slice(1); // убираем 'TRACK_START|'
+                        let ranges = [];
+                        for (let part of parts) {
+                            let nums = part.split(',').map(Number);
+                            if (nums.length === 6) {
+                                ranges.push({
+                                    hMin: nums[0], hMax: nums[1],
+                                    sMin: nums[2], sMax: nums[3],
+                                    vMin: nums[4], vMax: nums[5]
+                                });
+                            }
+                        }
+                        if (ranges.length > 0) {
+                            startTracking(ranges);
                         } else {
                             log(`❌ Неверный формат TRACK_START: ${cmd}`, 'sys');
                         }
@@ -993,14 +1176,14 @@ Commands: TRACK_START|200,220,100,255,100,255; MOVE_FORWARD|30|1000
             speak(txt, startWaitingForName);
         } catch (e) {
             log('ОШИБКА: ' + e.message, 'sys');
-            speak('Произошла ошибка при обработке запроса', startWaitingForName);
+            speak(translations[config.lang].error, startWaitingForName);
         }
     }
 
     function speak(text, callback) {
         window.speechSynthesis.cancel();
         const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = 'ru-RU';
+        msg.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
         msg.rate = 0.9;
         msg.onend = callback;
         window.speechSynthesis.speak(msg);
@@ -1012,36 +1195,32 @@ Commands: TRACK_START|200,220,100,255,100,255; MOVE_FORWARD|30|1000
         }
     }
 
-    // ========== Обработчики UI ==========
+    function stopListening() {
+        if (recognition) {
+            recognition.abort();
+        }
+    }
+
+    // ========== Инициализация ==========
+    bootBtn.addEventListener('click', boot);
     stopTrackingBtn.addEventListener('click', stopTracking);
 
     // Слайдеры
-    hueSlider.addEventListener('input', () => {
-        currentColor.h = parseInt(hueSlider.value);
-        updateColorUI();
-    });
-    satSlider.addEventListener('input', () => {
-        currentColor.s = parseInt(satSlider.value);
-        updateColorUI();
-    });
-    valSlider.addEventListener('input', () => {
-        currentColor.v = parseInt(valSlider.value);
-        updateColorUI();
-    });
+    hueSlider.addEventListener('input', () => { currentColor.h = parseInt(hueSlider.value); updateColorUI(); });
+    satSlider.addEventListener('input', () => { currentColor.s = parseInt(satSlider.value); updateColorUI(); });
+    valSlider.addEventListener('input', () => { currentColor.v = parseInt(valSlider.value); updateColorUI(); });
     sensSlider.addEventListener('input', () => {
-        updateThresholdsFromSensitivity();
+        currentColor.threshold.h = parseInt(sensSlider.value);
+        sensVal.textContent = currentColor.threshold.h;
         updateColorUI();
     });
-
-    calibrateBtn.addEventListener('click', startCalibration);
-    applyColorBtn.addEventListener('click', applyColorAndStartTracking);
 
     window.addEventListener('beforeunload', () => {
         if (videoStream) videoStream.getTracks().forEach(t => t.stop());
         stopTracking();
     });
 
-    // Инициализация UI цвета
+    // Начальные значения
     updateColorUI();
 </script>
 </body>
