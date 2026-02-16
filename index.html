@@ -1,1313 +1,242 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: OpenCV + ИИ трекер (оптимизированный)</title>
-    <style>
-        :root { --neon: #ffaa00; --bg: #0a0a0a; --track-color: #00ff9d; }
-        body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
-        #terminal { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #222; }
-        .controls { padding: 20px; background: #111; display: flex; flex-direction: column; gap: 10px; }
-        input, select { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
-        button { padding: 15px; background: var(--neon); border: none; font-weight: bold; border-radius: 5px; cursor: pointer; color: #000; }
-        .sys { color: #00d2ff; }
-        .ai { color: #fff; border-left: 2px solid var(--neon); padding-left: 10px; margin: 5px 0; }
-        .user { color: #ff00e5; }
-        .cmd { color: #00ff9d; font-weight: bold; }
-        .esp-connected { color: #00ff9d; }
-        .esp-disconnected { color: #ff4757; }
-        .blink { animation: blinker 1s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+  <meta charset="UTF-8" />
+  <title>Color Tracking — OpenCV.js</title>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Inter, system-ui, sans-serif;
+    }
 
-        #langPanel {
-            display: flex;
-            justify-content: flex-end;
-            padding: 5px 10px;
-            background: #111;
-        }
-        #langSelect {
-            background: #000;
-            color: var(--neon);
-            border: 1px solid var(--neon);
-            padding: 5px;
-            border-radius: 3px;
-        }
-        #espPanel {
-            padding: 15px;
-            background: #1a1a1a;
-            border-top: 1px solid #333;
-            display: none;
-        }
-        .esp-controls {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .esp-btn {
-            padding: 10px;
-            background: #222;
-            border: 1px solid #444;
-            border-radius: 4px;
-            color: var(--neon);
-            cursor: pointer;
-            font-size: 12px;
-            text-align: center;
-        }
-        .esp-btn:hover {
-            background: #333;
-            border-color: var(--neon);
-        }
-        #cameraPanel {
-            padding: 15px;
-            background: #111;
-            border-top: 1px solid #333;
-            display: none;
-            flex-direction: column;
-            gap: 10px;
-        }
-        #cameraHeader {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--neon);
-            font-size: 14px;
-            text-transform: uppercase;
-        }
-        .video-row {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .video-container {
-            position: relative;
-            width: 100%;
-            max-width: 480px;
-            border: 2px solid var(--neon);
-            border-radius: 5px;
-            overflow: hidden;
-            background: #000;
-            box-shadow: 0 0 15px rgba(255,170,0,0.3);
-        }
-        .video-container video, .video-container .overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .video-container video { z-index: 1; }
-        .video-container .overlay { z-index: 2; pointer-events: none; }
-        .video-container::before {
-            content: "";
-            display: block;
-            padding-top: 75%;
-        }
-        .mask-container {
-            width: 100%;
-            max-width: 480px;
-            border: 2px solid var(--neon);
-            border-radius: 5px;
-            background: #000;
-            box-shadow: 0 0 15px rgba(255,170,0,0.3);
-        }
-        .mask-container canvas {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        #trackingStats {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            color: #00ff9d;
-            font-size: 12px;
-        }
-        .stat-item { text-align: center; }
-        .stat-label { color: #aaa; font-size: 10px; }
-        .stat-value { font-weight: bold; color: var(--neon); }
-        #colorPanel {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 10px;
-            display: none;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .color-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--neon);
-        }
-        .color-preview {
-            width: 50px;
-            height: 50px;
-            border-radius: 5px;
-            border: 2px solid white;
-        }
-        .slider-container {
-            margin: 5px 0;
-        }
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            color: #aaa;
-            font-size: 12px;
-        }
-        input[type=range] {
-            width: 100%;
-            height: 6px;
-            background: #333;
-            border-radius: 3px;
-            -webkit-appearance: none;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: var(--neon);
-            cursor: pointer;
-        }
-        .mode-badge {
-            background: #00ff9d;
-            color: #000;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .btn-small {
-            padding: 8px 12px;
-            background: #222;
-            border: 1px solid var(--neon);
-            color: var(--neon);
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-small:hover {
-            background: #333;
-        }
-    </style>
-    <!-- OpenCV.js загружается асинхронно -->
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvLoaded()"></script>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1e1e2f, #0f0f17);
+      color: #fff;
+      padding: 24px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: #181825;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .control {
+      margin-bottom: 14px;
+    }
+
+    .control label {
+      display: block;
+      font-size: 13px;
+      opacity: .85;
+      margin-bottom: 6px;
+    }
+
+    .control input[type="range"],
+    .control input[type="color"] {
+      width: 100%;
+    }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .video-box {
+      background: #0c0c14;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .video-box h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      opacity: .8;
+    }
+
+    canvas {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 20px;
+      opacity: .6;
+      font-size: 13px;
+    }
+  </style>
 </head>
+
 <body>
+  <h1>🎯 Отслеживание объекта по цвету (OpenCV.js)</h1>
 
-<!-- Language selector -->
-<div id="langPanel">
-    <select id="langSelect">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
-    </select>
-</div>
+  <div class="container">
+    <!-- SETTINGS -->
+    <div class="panel">
+      <h2>⚙️ Настройки цвета</h2>
 
-<div style="padding: 10px; font-size: 12px; background: #111;">
-    <span id="statusLabel">STATUS:</span> <span id="st">READY</span> | 
-    <span id="espLabel">ESP32:</span> <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | 
-    <span id="camLabel">CAMERA:</span> <span id="camStatus" class="esp-disconnected">OFF</span> | 
-    <span id="trackLabel">TRACKING:</span> <span id="trackStatus" class="esp-disconnected">OFF</span> | 
-    <span id="fpsLabel">FPS:</span> <span id="fps">0</span>
-</div>
+      <div class="control">
+        <label>Выбранный цвет</label>
+        <input type="color" id="colorPicker" value="#ff0000">
+      </div>
 
-<div id="terminal"></div>
+      <div class="control">
+        <label>Hue Range</label>
+        <input type="range" id="hRange" min="5" max="40" value="15">
+      </div>
 
-<!-- Camera Panel -->
-<div id="cameraPanel">
-    <div id="cameraHeader">
-        <span id="videoFeedLabel">📷 VIDEO FEED</span>
-        <button id="stopTrackingBtn" onclick="stopTracking()" style="padding: 5px 10px; font-size: 12px; background: transparent; border: 1px solid #ff4757; color: #ff4757;">⏹ STOP TRACK</button>
-    </div>
-    <div class="video-row">
-        <div class="video-container">
-            <video id="videoElement" autoplay playsinline muted></video>
-            <canvas id="overlayCanvas" class="overlay"></canvas>
-        </div>
-        <div class="mask-container">
-            <canvas id="maskCanvas"></canvas>
-        </div>
-    </div>
-    <!-- Tracking statistics -->
-    <div id="trackingStats">
-        <div class="stat-item"><span class="stat-label" id="xLabel">X</span><br><span id="xPos" class="stat-value">-</span></div>
-        <div class="stat-item"><span class="stat-label" id="yLabel">Y</span><br><span id="yPos" class="stat-value">-</span></div>
-        <div class="stat-item"><span class="stat-label" id="sizeLabel">Размер</span><br><span id="objectSize" class="stat-value">-</span></div>
-        <div class="stat-item"><span class="stat-label" id="confLabel">Уверенность</span><br><span id="confidence" class="stat-value">-</span></div>
+      <div class="control">
+        <label>Min Saturation</label>
+        <input type="range" id="sMin" min="0" max="255" value="100">
+      </div>
+
+      <div class="control">
+        <label>Min Value</label>
+        <input type="range" id="vMin" min="0" max="255" value="100">
+      </div>
     </div>
 
-    <!-- Панель точной настройки цвета -->
-    <div id="colorPanel">
-        <div class="color-header">
-            <span id="fineTuneLabel">🎨 Точная настройка цвета</span>
-            <div class="mode-badge" id="currentColorName">H:0 S:100 V:100</div>
+    <!-- VIDEO -->
+    <div class="panel">
+      <div class="video-grid">
+        <div class="video-box">
+          <h3>📷 Видео + Bounding Box</h3>
+          <canvas id="canvasOutput"></canvas>
         </div>
-        <div style="display: flex; gap: 15px; align-items: center;">
-            <div class="color-preview" id="colorPreview" style="background: #ff0000;"></div>
-            <div style="flex:1;">
-                <div style="display: flex; gap: 5px;">
-                    <button class="btn-small" id="calibrateBtn">🔍 Калибровка (клик)</button>
-                    <button class="btn-small" id="applyColorBtn">✅ Применить</button>
-                </div>
-                <div style="margin-top: 8px; font-size: 11px; color: #aaa;">
-                    <span id="hueLabel">H</span>: <span id="hueVal">0</span>° 
-                    <span id="satLabel">S</span>: <span id="satVal">100</span>% 
-                    <span id="valLabel">V</span>: <span id="valVal">100</span>%
-                </div>
-            </div>
-        </div>
-        <div class="slider-container">
-            <div class="slider-header"><span id="hueSliderLabel">Оттенок (Hue)</span><span id="hueSliderVal">0°</span></div>
-            <input type="range" id="hueSlider" min="0" max="360" value="0" step="1">
-        </div>
-        <div class="slider-container">
-            <div class="slider-header"><span id="satSliderLabel">Насыщенность</span><span id="satSliderVal">100%</span></div>
-            <input type="range" id="satSlider" min="0" max="100" value="100" step="1">
-        </div>
-        <div class="slider-container">
-            <div class="slider-header"><span id="valSliderLabel">Яркость</span><span id="valSliderVal">100%</span></div>
-            <input type="range" id="valSlider" min="0" max="100" value="100" step="1">
-        </div>
-        <div class="slider-container">
-            <div class="slider-header"><span id="sensLabel">Чувствительность</span><span id="sensVal">15</span></div>
-            <input type="range" id="sensSlider" min="5" max="40" value="15" step="1">
-        </div>
-    </div>
-</div>
 
-<!-- Setup Panel -->
-<div class="controls" id="setup">
-    <input type="password" id="key" placeholder="OpenRouter API Key (sk-or-...)">
-    <input type="text" id="ip" placeholder="IP Робота (ESP32)">
-    <button id="bootBtn">ЗАПУСТИТЬ СИСТЕМУ</button>
-</div>
+        <div class="video-box">
+          <h3>🧩 Сегментация</h3>
+          <canvas id="canvasMask"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<!-- ESP32 Control Panel -->
-<div id="espPanel">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <div id="espControlsLabel">ESP32 CONTROLS:</div>
-        <button onclick="testESP32Connection()" style="padding: 8px 12px; font-size: 12px;">🔧 TEST</button>
-    </div>
-    <div class="esp-controls">
-        <div class="esp-btn" onclick="sendESP32Command('LED_ON')">💡 ON</div>
-        <div class="esp-btn" onclick="sendESP32Command('LED_OFF')">💡 OFF</div>
-        <div class="esp-btn" onclick="sendESP32Command('MOVE_FORWARD|50|2000')">⬆ FWD</div>
-        <div class="esp-btn" onclick="sendESP32Command('STOP')">⏹ STOP</div>
-        <div class="esp-btn" onclick="sendESP32Command('MOVE_BACKWARD|30|1000')">⬇ BACK</div>
-        <div class="esp-btn" onclick="sendESP32Command('ROTATE_LEFT|90|50')">↶ LEFT</div>
-        <div class="esp-btn" onclick="sendESP32Command('ROTATE_RIGHT|90|50')">↷ RIGHT</div>
-        <div class="esp-btn" onclick="sendESP32Command('DANCE_1')">🕺 1</div>
-        <div class="esp-btn" onclick="sendESP32Command('DANCE_2')">💃 2</div>
-        <div class="esp-btn" onclick="sendESP32Command('DANCE_3')">👯 3</div>
-        <div class="esp-btn" onclick="sendESP32Command('REMOTECONTROL_MODE')">🎮 REMOTE</div>
-        <div class="esp-btn" onclick="sendESP32Command('WAIT_2')">⏱ WAIT 2s</div>
-    </div>
-</div>
+  <footer>
+    OpenCV.js · Color Tracking Demo
+  </footer>
 
 <script>
-    // ========== Глобальные переменные ==========
-    let cvReady = false; // Флаг готовности OpenCV runtime
-    let config = { key: '', ip: '', active: false, espConnected: false, lang: 'ru' };
-    let videoStream = null;
-    let hiddenCanvas = document.createElement('canvas');
-    let hiddenCtx = hiddenCanvas.getContext('2d');
-    let trackingActive = false;
-    let trackingLoopId = null;
-    let lastCommandTime = 0;
-    const COMMAND_COOLDOWN = 200;
-    let lastTimestamp = 0, frameCount = 0, fps = 0;
+let video = document.createElement('video');
+video.autoplay = true;
 
-    // ===== OpenCV persistent objects (инициализируются после старта камеры) =====
-    let cvSrc = null;        // RGBA frame
-    let cvHsv = null;        // HSV frame
-    let cvMask = null;       // final mask
-    let cvTempMask = null;   // temporary mask for range combination
-    let cvContourMask = null; // mask for the selected contour (light adaptation)
-    let cvKernel = null;
-    let cvContours = null;
-    let cvHierarchy = null;
-    let frameW = 0, frameH = 0;
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => video.srcObject = stream);
 
-    // ===== Автоматическая адаптация к освещению (EMA) =====
-    const ADAPT_ALPHA = 0.1;        // коэффициент сглаживания EMA
-    const ADAPT_MARGIN = 30;        // запас для S и V (в единицах 0-255)
-    let emaS = 128.0;               // текущее среднее S (0-255)
-    let emaV = 128.0;               // текущее среднее V (0-255)
-    let adaptationEnabled = true;   // можно отключить при необходимости
+function hexToHSV(hex) {
+  let r = parseInt(hex.substr(1,2),16)/255;
+  let g = parseInt(hex.substr(3,2),16)/255;
+  let b = parseInt(hex.substr(5,2),16)/255;
 
-    // Цветовые диапазоны (массив объектов { hMin, hMax, sMin, sMax, vMin, vMax })
-    let colorRanges = [];
+  let max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let d = max - min;
+  let h = 0;
 
-    // Для выбора объекта из нескольких кандидатов
-    let candidates = [];
-    let selectedCandidateIndex = -1;
-    let awaitingUserChoice = false;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
 
-    // DOM элементы
-    const term = document.getElementById('terminal');
-    const st = document.getElementById('st');
-    const espStatus = document.getElementById('espStatus');
-    const camStatus = document.getElementById('camStatus');
-    const trackStatus = document.getElementById('trackStatus');
-    const fpsEl = document.getElementById('fps');
-    const espPanel = document.getElementById('espPanel');
-    const setupPanel = document.getElementById('setup');
-    const cameraPanel = document.getElementById('cameraPanel');
-    const videoElement = document.getElementById('videoElement');
-    const overlayCanvas = document.getElementById('overlayCanvas');
-    const overlayCtx = overlayCanvas.getContext('2d');
-    const maskCanvas = document.getElementById('maskCanvas');
-    const maskCtx = maskCanvas.getContext('2d'); // всё ещё используется для очистки, но imshow заменяет
-    const stopTrackingBtn = document.getElementById('stopTrackingBtn');
-    const xPosEl = document.getElementById('xPos');
-    const yPosEl = document.getElementById('yPos');
-    const objectSizeEl = document.getElementById('objectSize');
-    const confidenceEl = document.getElementById('confidence');
-    const langSelect = document.getElementById('langSelect');
-    const bootBtn = document.getElementById('bootBtn');
-    const calibrateBtn = document.getElementById('calibrateBtn');
-    const applyColorBtn = document.getElementById('applyColorBtn');
-    const colorPreview = document.getElementById('colorPreview');
-    const hueSlider = document.getElementById('hueSlider');
-    const satSlider = document.getElementById('satSlider');
-    const valSlider = document.getElementById('valSlider');
-    const sensSlider = document.getElementById('sensSlider');
-    const hueSliderVal = document.getElementById('hueSliderVal');
-    const satSliderVal = document.getElementById('satSliderVal');
-    const valSliderVal = document.getElementById('valSliderVal');
-    const sensVal = document.getElementById('sensVal');
-    const hueVal = document.getElementById('hueVal');
-    const satVal = document.getElementById('satVal');
-    const valVal = document.getElementById('valVal');
-    const currentColorName = document.getElementById('currentColorName');
+  h = Math.round(h * 30);
+  if (h < 0) h += 180;
 
-    // Текущий цвет для ручной настройки
-    let currentColor = { h: 0, s: 100, v: 100, threshold: { h: 15, s: 30, v: 30 } };
+  let s = max === 0 ? 0 : d / max;
+  let v = max;
 
-    // ========== Языковые ресурсы ==========
-    const translations = {
-        ru: {
-            status: "СТАТУС",
-            esp: "ESP32",
-            camera: "КАМЕРА",
-            tracking: "СЛЕЖЕНИЕ",
-            fps: "FPS",
-            videoFeed: "📷 ВИДЕО",
-            stopTrack: "⏹ СТОП",
-            x: "X",
-            y: "Y",
-            size: "Размер",
-            confidence: "Уверенность",
-            fineTune: "🎨 Точная настройка цвета",
-            hue: "Оттенок (Hue)",
-            saturation: "Насыщенность",
-            value: "Яркость",
-            sensitivity: "Чувствительность",
-            calibrate: "🔍 Калибровка (клик)",
-            apply: "✅ Применить",
-            boot: "ЗАПУСТИТЬ СИСТЕМУ",
-            espControls: "УПРАВЛЕНИЕ ESP32",
-            test: "ТЕСТ",
-            multipleObjects: "Найдено несколько объектов. Какой отслеживать?",
-            chooseOne: "Выберите один: ",
-            listeningName: "СЛУШАЮ (ИМЯ)",
-            listeningCmd: "СЛУШАЮ (КОМАНДА)",
-            thinking: "ДУМАЮ",
-            replying: "ОТВЕЧАЮ",
-            ready: "ГОТОВ",
-            error: "ОШИБКА"
-        },
-        en: {
-            status: "STATUS",
-            esp: "ESP32",
-            camera: "CAMERA",
-            tracking: "TRACKING",
-            fps: "FPS",
-            videoFeed: "📷 VIDEO FEED",
-            stopTrack: "⏹ STOP",
-            x: "X",
-            y: "Y",
-            size: "Size",
-            confidence: "Confidence",
-            fineTune: "🎨 Fine Tune Color",
-            hue: "Hue",
-            saturation: "Saturation",
-            value: "Value",
-            sensitivity: "Sensitivity",
-            calibrate: "🔍 Calibrate (click)",
-            apply: "✅ Apply",
-            boot: "BOOT SYSTEM",
-            espControls: "ESP32 CONTROLS",
-            test: "TEST",
-            multipleObjects: "Multiple objects found. Which one to track?",
-            chooseOne: "Choose one: ",
-            listeningName: "LISTENING (NAME)",
-            listeningCmd: "LISTENING (COMMAND)",
-            thinking: "THINKING",
-            replying: "REPLYING",
-            ready: "READY",
-            error: "ERROR"
-        }
-    };
+  return [h, Math.round(s * 255), Math.round(v * 255)];
+}
 
-    function updateLanguage(lang) {
-        config.lang = lang;
-        const t = translations[lang];
-        document.getElementById('statusLabel').innerText = t.status + ':';
-        document.getElementById('espLabel').innerText = t.esp + ':';
-        document.getElementById('camLabel').innerText = t.camera + ':';
-        document.getElementById('trackLabel').innerText = t.tracking + ':';
-        document.getElementById('fpsLabel').innerText = t.fps + ':';
-        document.getElementById('videoFeedLabel').innerText = t.videoFeed;
-        document.getElementById('stopTrackingBtn').innerText = t.stopTrack;
-        document.getElementById('xLabel').innerText = t.x;
-        document.getElementById('yLabel').innerText = t.y;
-        document.getElementById('sizeLabel').innerText = t.size;
-        document.getElementById('confLabel').innerText = t.confidence;
-        document.getElementById('fineTuneLabel').innerText = t.fineTune;
-        document.getElementById('hueSliderLabel').innerText = t.hue;
-        document.getElementById('satSliderLabel').innerText = t.saturation;
-        document.getElementById('valSliderLabel').innerText = t.value;
-        document.getElementById('sensLabel').innerText = t.sensitivity;
-        document.getElementById('calibrateBtn').innerText = t.calibrate;
-        document.getElementById('applyColorBtn').innerText = t.apply;
-        document.getElementById('bootBtn').innerText = t.boot;
-        document.getElementById('espControlsLabel').innerText = t.espControls;
-        if (!config.active) st.innerText = t.ready;
+cv['onRuntimeInitialized'] = () => {
+  const cap = new cv.VideoCapture(video);
+
+  const src = new cv.Mat(480, 640, cv.CV_8UC4);
+  const hsv = new cv.Mat();
+  const mask = new cv.Mat();
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+
+  const canvasOutput = document.getElementById('canvasOutput');
+  const canvasMask = document.getElementById('canvasMask');
+
+  function process() {
+    cap.read(src);
+    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+    const color = document.getElementById('colorPicker').value;
+    const hRange = +document.getElementById('hRange').value;
+    const sMin = +document.getElementById('sMin').value;
+    const vMin = +document.getElementById('vMin').value;
+
+    const [h,s,v] = hexToHSV(color);
+
+    let lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [h-hRange, sMin, vMin, 0]);
+    let upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [h+hRange, 255, 255, 255]);
+
+    cv.inRange(hsv, lower, upper, mask);
+
+    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    let maxArea = 0;
+    let maxContour = null;
+
+    for (let i = 0; i < contours.size(); i++) {
+      let cnt = contours.get(i);
+      let area = cv.contourArea(cnt);
+      if (area > maxArea) {
+        maxArea = area;
+        maxContour = cnt;
+      }
     }
 
-    langSelect.addEventListener('change', (e) => {
-        updateLanguage(e.target.value);
-        if (config.active) {
-            stopListening();
-            startWaitingForName();
-        }
-    });
-
-    // ========== Вспомогательные функции ==========
-    function log(msg, cl = '') {
-        const d = document.createElement('div');
-        if(cl) d.className = cl;
-        d.innerHTML = `> ${msg}`;
-        term.appendChild(d);
-        term.scrollTop = term.scrollHeight;
+    if (maxContour) {
+      let rect = cv.boundingRect(maxContour);
+      cv.rectangle(
+        src,
+        new cv.Point(rect.x, rect.y),
+        new cv.Point(rect.x + rect.width, rect.y + rect.height),
+        [0,255,0,255],
+        2
+      );
     }
 
-    function rgbToHsv(r, g, b) {
-        r /= 255; g /= 255; b /= 255;
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const diff = max - min;
-        let h = 0, s = 0, v = max;
-        if (diff !== 0) {
-            s = diff / max;
-            if (max === r) h = (g - b) / diff + (g < b ? 6 : 0);
-            else if (max === g) h = (b - r) / diff + 2;
-            else h = (r - g) / diff + 4;
-            h /= 6;
-        }
-        return { h: Math.round(h * 360), s, v };
-    }
-
-    function hsvToRgb(h, s, v) {
-        let r, g, b;
-        const hi = Math.floor(h / 60) % 6;
-        const f = h / 60 - hi;
-        const p = v * (1 - s);
-        const q = v * (1 - f * s);
-        const t = v * (1 - (1 - f) * s);
-        switch (hi) {
-            case 0: r = v; g = t; b = p; break;
-            case 1: r = q; g = v; b = p; break;
-            case 2: r = p; g = v; b = t; break;
-            case 3: r = p; g = q; b = v; break;
-            case 4: r = t; g = p; b = v; break;
-            case 5: r = v; g = p; b = q; break;
-        }
-        return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
-    }
-
-    function updateColorUI() {
-        hueSlider.value = currentColor.h;
-        satSlider.value = currentColor.s;
-        valSlider.value = currentColor.v;
-        sensSlider.value = currentColor.threshold.h;
-        hueSliderVal.textContent = currentColor.h + '°';
-        satSliderVal.textContent = currentColor.s + '%';
-        valSliderVal.textContent = currentColor.v + '%';
-        sensVal.textContent = currentColor.threshold.h;
-        hueVal.textContent = currentColor.h;
-        satVal.textContent = currentColor.s;
-        valVal.textContent = currentColor.v;
-        const rgb = hsvToRgb(currentColor.h, currentColor.s/100, currentColor.v/100);
-        colorPreview.style.backgroundColor = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
-        currentColorName.textContent = `H:${currentColor.h} S:${currentColor.s} V:${currentColor.v}`;
-    }
-
-    // ========== OpenCV.js инициализация ==========
-    function onOpenCvLoaded() {
-        // Этот колбэк вызывается после загрузки скрипта, но runtime ещё не готов.
-        // Устанавливаем обработчик на runtime.
-        cv.onRuntimeInitialized = () => {
-            cvReady = true;
-            log('✅ OpenCV.js runtime готов', 'sys');
-
-            // Создаём постоянные объекты, которые не зависят от размера кадра
-            cvKernel = cv.Mat.ones(5, 5, cv.CV_8U);
-            cvContours = new cv.MatVector();
-            cvHierarchy = new cv.Mat();
-        };
-    }
-
-    // Создание/пересоздание буферов под текущий размер кадра
-    function initOpenCVBuffers(w, h) {
-        if (!cvReady) return;
-        frameW = w;
-        frameH = h;
-
-        if (cvSrc) cvSrc.delete();
-        if (cvHsv) cvHsv.delete();
-        if (cvMask) cvMask.delete();
-        if (cvTempMask) cvTempMask.delete();
-        if (cvContourMask) cvContourMask.delete();
-
-        cvSrc = new cv.Mat(h, w, cv.CV_8UC4);
-        cvHsv = new cv.Mat(h, w, cv.CV_8UC3);
-        cvMask = new cv.Mat(h, w, cv.CV_8UC1);
-        cvTempMask = new cv.Mat(h, w, cv.CV_8UC1);
-        cvContourMask = new cv.Mat(h, w, cv.CV_8UC1);
-
-        log(`🧠 OpenCV буферы ${w}×${h} созданы`, 'sys');
-    }
-
-    // ========== Инициализация камеры ==========
-    async function initCamera() {
-        try {
-            videoStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 640, height: 480, facingMode: 'environment' } 
-            });
-            videoElement.srcObject = videoStream;
-            await videoElement.play();
-
-            videoElement.addEventListener('loadedmetadata', () => {
-                const width = videoElement.videoWidth;
-                const height = videoElement.videoHeight;
-                overlayCanvas.width = width;
-                overlayCanvas.height = height;
-                maskCanvas.width = width;
-                maskCanvas.height = height;
-                hiddenCanvas.width = width;
-                hiddenCanvas.height = height;
-
-                // Инициализируем OpenCV буферы под этот размер
-                if (cvReady) {
-                    initOpenCVBuffers(width, height);
-                } else {
-                    // Если OpenCV ещё не готов, подождём и повторим
-                    const waitForCV = setInterval(() => {
-                        if (cvReady) {
-                            clearInterval(waitForCV);
-                            initOpenCVBuffers(width, height);
-                        }
-                    }, 100);
-                }
-
-                log(`📐 Размер видео: ${width}x${height}`, 'sys');
-            });
-
-            // Если метаданные уже загружены
-            if (videoElement.videoWidth) {
-                const w = videoElement.videoWidth, h = videoElement.videoHeight;
-                overlayCanvas.width = w;
-                overlayCanvas.height = h;
-                maskCanvas.width = w;
-                maskCanvas.height = h;
-                hiddenCanvas.width = w;
-                hiddenCanvas.height = h;
-                if (cvReady) initOpenCVBuffers(w, h);
-            }
-
-            cameraPanel.style.display = 'flex';
-            document.getElementById('colorPanel').style.display = 'flex';
-            camStatus.textContent = 'ON';
-            camStatus.className = 'esp-connected';
-            log('✅ Камера инициализирована', 'sys');
-        } catch (err) {
-            log('❌ Ошибка доступа к камере: ' + err.message, 'sys');
-            camStatus.textContent = 'OFF';
-        }
-    }
-
-    async function captureImage() {
-        if (!videoElement || videoElement.readyState < 2) return null;
-        const width = videoElement.videoWidth;
-        const height = videoElement.videoHeight;
-        hiddenCanvas.width = width;
-        hiddenCanvas.height = height;
-        hiddenCtx.drawImage(videoElement, 0, 0, width, height);
-        return hiddenCanvas.toDataURL('image/jpeg', 0.7);
-    }
-
-    // ========== Функции трекинга через OpenCV ==========
-    // Разбивает диапазон оттенков, если hMin > hMax (оборачивание через 0)
-    function splitHueRange(range) {
-        if (range.hMin <= range.hMax) {
-            return [range];
-        } else {
-            // Разбиваем на два: [hMin, 360] и [0, hMax]
-            return [
-                { hMin: range.hMin, hMax: 360, sMin: range.sMin, sMax: range.sMax, vMin: range.vMin, vMax: range.vMax },
-                { hMin: 0, hMax: range.hMax, sMin: range.sMin, sMax: range.sMax, vMin: range.vMin, vMax: range.vMax }
-            ];
-        }
-    }
-
-    function setColorRangesFromAI(rangesArray) {
-        let newRanges = [];
-        for (let r of rangesArray) {
-            let validated = {
-                hMin: Math.max(0, Math.min(360, r.hMin)),
-                hMax: Math.max(0, Math.min(360, r.hMax)),
-                sMin: Math.max(0, Math.min(255, r.sMin)),
-                sMax: Math.max(0, Math.min(255, r.sMax)),
-                vMin: Math.max(0, Math.min(255, r.vMin)),
-                vMax: Math.max(0, Math.min(255, r.vMax))
-            };
-            newRanges.push(...splitHueRange(validated));
-        }
-        colorRanges = newRanges;
-        if (colorRanges.length === 0) return;
-        // Сбросим EMA при смене диапазона (адаптация начнётся заново)
-        emaS = 128; emaV = 128;
-
-        // Для отображения в слайдерах (берём среднее первого)
-        const first = colorRanges[0];
-        let h = Math.round((first.hMin + first.hMax) / 2);
-        if (first.hMin > first.hMax) h = Math.round(((first.hMin + first.hMax + 360) / 2) % 360);
-        currentColor.h = h;
-        currentColor.s = Math.round((first.sMin + first.sMax) / 2 / 2.55);
-        currentColor.v = Math.round((first.vMin + first.vMax) / 2 / 2.55);
-        currentColor.threshold.h = Math.max(5, Math.round((first.hMax - first.hMin + (first.hMin > first.hMax ? 360 : 0)) / 2));
-        updateColorUI();
-    }
-
-    // Адаптация S и V диапазона к текущим условиям освещения
-    function adaptColorRange(meanS, meanV) {
-        if (!adaptationEnabled || colorRanges.length === 0) return;
-
-        // Обновляем EMA
-        emaS = ADAPT_ALPHA * meanS + (1 - ADAPT_ALPHA) * emaS;
-        emaV = ADAPT_ALPHA * meanV + (1 - ADAPT_ALPHA) * emaV;
-
-        // Применяем к первому диапазону (предполагаем, что основной)
-        let range = colorRanges[0];
-        // Вычисляем новые границы с запасом
-        let newSMin = Math.max(0, Math.min(255, Math.round(emaS - ADAPT_MARGIN)));
-        let newSMax = Math.max(0, Math.min(255, Math.round(emaS + ADAPT_MARGIN)));
-        let newVMin = Math.max(0, Math.min(255, Math.round(emaV - ADAPT_MARGIN)));
-        let newVMax = Math.max(0, Math.min(255, Math.round(emaV + ADAPT_MARGIN)));
-
-        // Убедимся, что min <= max
-        if (newSMin > newSMax) { let tmp = newSMin; newSMin = newSMax; newSMax = tmp; }
-        if (newVMin > newVMax) { let tmp = newVMin; newVMin = newVMax; newVMax = tmp; }
-
-        range.sMin = newSMin;
-        range.sMax = newSMax;
-        range.vMin = newVMin;
-        range.vMax = newVMax;
-
-        // Для многодиапазонных случаев можно адаптировать все, но пока ограничимся первым
-    }
-
-    function processFrameWithOpenCV() {
-        if (!cvReady || !trackingActive || videoElement.readyState < 2 || frameW === 0) return;
-
-        // === Захват кадра в hiddenCanvas и копирование в cvSrc ===
-        hiddenCtx.drawImage(videoElement, 0, 0, frameW, frameH);
-        const imgData = hiddenCtx.getImageData(0, 0, frameW, frameH);
-        cvSrc.data.set(imgData.data); // быстрое копирование
-
-        // RGBA → HSV
-        cv.cvtColor(cvSrc, cvHsv, cv.COLOR_RGBA2HSV);
-
-        // Очистка маски
-        cvMask.setTo(new cv.Scalar(0));
-
-        // Построение маски по всем диапазонам
-        for (const range of colorRanges) {
-            const low = new cv.Scalar(range.hMin / 2, range.sMin, range.vMin);
-            const high = new cv.Scalar(range.hMax / 2, range.sMax, range.vMax);
-            cv.inRange(cvHsv, low, high, cvTempMask);
-            cv.bitwiseOr(cvMask, cvTempMask, cvMask);
-        }
-
-        // Морфология (удаление шума)
-        cv.morphologyEx(cvMask, cvMask, cv.MORPH_OPEN, cvKernel);
-        cv.morphologyEx(cvMask, cvMask, cv.MORPH_CLOSE, cvKernel);
-
-        // Отображение маски (быстрый способ)
-        cv.imshow(maskCanvas, cvMask);
-
-        // Поиск контуров
-        cv.findContours(cvMask, cvContours, cvHierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-        // Сбор кандидатов
-        candidates = [];
-        for (let i = 0; i < cvContours.size(); i++) {
-            const contour = cvContours.get(i);
-            const area = cv.contourArea(contour);
-            if (area < 600) continue;
-            const rect = cv.boundingRect(contour);
-            candidates.push({
-                contour: contour.clone(), // важно: клонируем, чтобы сохранить для дальнейшего использования (иначе ссылка затрётся)
-                boundingRect: rect,
-                area: area,
-                index: i
-            });
-        }
-
-        overlayCtx.clearRect(0, 0, frameW, frameH);
-
-        // Если есть кандидаты, обрабатываем выбор
-        if (candidates.length > 0) {
-            if (!awaitingUserChoice) {
-                if (candidates.length === 1) {
-                    selectedCandidateIndex = 0;
-                } else {
-                    if (selectedCandidateIndex === -1) {
-                        // Запускаем выбор через ИИ (асинхронно, не блокирует цикл)
-                        askAIForShapeDescriptions(candidates);
-                        awaitingUserChoice = true;
-                    }
-                }
-            }
-
-            // Рисуем все рамки
-            for (let i = 0; i < candidates.length; i++) {
-                const r = candidates[i].boundingRect;
-                overlayCtx.strokeStyle = (i === selectedCandidateIndex) ? '#00ff9d' : '#ffaa00';
-                overlayCtx.lineWidth = (i === selectedCandidateIndex) ? 3 : 1;
-                overlayCtx.strokeRect(r.x, r.y, r.width, r.height);
-                overlayCtx.fillStyle = 'white';
-                overlayCtx.font = '12px monospace';
-                overlayCtx.fillText(`#${i+1}`, r.x, r.y-5);
-            }
-
-            // Если выбран конкретный объект, обновляем статистику и выполняем адаптацию
-            if (selectedCandidateIndex >= 0 && selectedCandidateIndex < candidates.length) {
-                const r = candidates[selectedCandidateIndex].boundingRect;
-                const cx = r.x + r.width / 2;
-                const cy = r.y + r.height / 2;
-
-                xPosEl.textContent = Math.round(cx);
-                yPosEl.textContent = Math.round(cy);
-                objectSizeEl.textContent = `${r.width}×${r.height}`;
-                let conf = Math.min(100, Math.round(candidates[selectedCandidateIndex].area / (frameW * frameH) * 1200));
-                confidenceEl.textContent = conf + '%';
-
-                // ===== Автоматическая адаптация S и V =====
-                if (adaptationEnabled && colorRanges.length > 0) {
-                    // Создаём маску только для выбранного контура
-                    cvContourMask.setTo(new cv.Scalar(0));
-                    const contour = candidates[selectedCandidateIndex].contour;
-                    const color = new cv.Scalar(255);
-                    cv.drawContours(cvContourMask, [contour], 0, color, -1); // заливка контура
-
-                    // Вычисляем средние S и V внутри этой маски
-                    const mean = cv.mean(cvHsv, cvContourMask);
-                    const meanS = mean[1]; // канал S
-                    const meanV = mean[2]; // канал V
-
-                    // Адаптируем диапазон
-                    adaptColorRange(meanS, meanV);
-                }
-
-                // Отправка команд на ESP32 (если нужно)
-                if (config.espConnected) {
-                    const frameCenterX = frameW / 2;
-                    const threshold = frameW * 0.1;
-                    const now = performance.now();
-                    if (now - lastCommandTime > COMMAND_COOLDOWN) {
-                        let command = null;
-                        if (cx < frameCenterX - threshold) command = 'ROTATE_LEFT|30|150';
-                        else if (cx > frameCenterX + threshold) command = 'ROTATE_RIGHT|30|150';
-                        if (command) {
-                            sendESP32Command(command);
-                            lastCommandTime = now;
-                        }
-                    }
-                }
-            } else {
-                xPosEl.textContent = '-'; yPosEl.textContent = '-';
-                objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
-            }
-        } else {
-            xPosEl.textContent = '-'; yPosEl.textContent = '-';
-            objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
-        }
-
-        // Освобождаем клонированные контуры (чтобы избежать утечек)
-        for (let c of candidates) {
-            if (c.contour) c.contour.delete();
-        }
-    }
-
-    async function askAIForShapeDescriptions(candidates) {
-        if (!config.key) return;
-        let descriptions = [];
-        for (let i = 0; i < Math.min(candidates.length, 3); i++) {
-            let r = candidates[i].boundingRect;
-            let candidateCanvas = document.createElement('canvas');
-            candidateCanvas.width = r.width;
-            candidateCanvas.height = r.height;
-            let ctx = candidateCanvas.getContext('2d');
-            ctx.drawImage(hiddenCanvas, r.x, r.y, r.width, r.height, 0, 0, r.width, r.height);
-            let dataURL = candidateCanvas.toDataURL('image/jpeg', 0.5);
-            try {
-                let response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${config.key}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: "qwen/qwen3-vl-235b-a22b-thinking",
-                        messages: [
-                            { role: 'system', content: 'Ты помогаешь идентифицировать объекты по форме. Опиши объект на изображении одним-двумя словами (например, "круглый", "прямоугольный", "с ручкой"). Ответь только на языке пользователя.' },
-                            { role: 'user', content: [{ type: 'image_url', image_url: { url: dataURL } }] }
-                        ],
-                        max_tokens: 20
-                    })
-                });
-                let data = await response.json();
-                let desc = data.choices[0].message.content.trim();
-                descriptions.push(desc);
-            } catch (e) {
-                descriptions.push('неизвестно');
-            }
-        }
-        let t = translations[config.lang];
-        let message = t.multipleObjects + '\n';
-        for (let i = 0; i < descriptions.length; i++) {
-            message += `${i+1}: ${descriptions[i]}\n`;
-        }
-        message += t.chooseOne;
-        log(message, 'ai');
-        speak(message, () => {
-            st.innerText = t.listeningCmd;
-            startListeningForChoice(candidates.length);
-        });
-    }
-
-    function startListeningForChoice(numCandidates) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recog = new SpeechRecognition();
-        recog.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
-        recog.continuous = false;
-        recog.onresult = (event) => {
-            let text = event.results[0][0].transcript.toLowerCase();
-            log(`<span class="user">${text}</span>`);
-            let choice = -1;
-            if (config.lang === 'ru') {
-                if (text.includes('первый') || text.includes('1')) choice = 0;
-                else if (text.includes('второй') || text.includes('2')) choice = 1;
-                else if (text.includes('третий') || text.includes('3')) choice = 2;
-            } else {
-                if (text.includes('first') || text.includes('1')) choice = 0;
-                else if (text.includes('second') || text.includes('2')) choice = 1;
-                else if (text.includes('third') || text.includes('3')) choice = 2;
-            }
-            if (choice >= 0 && choice < numCandidates) {
-                selectedCandidateIndex = choice;
-                awaitingUserChoice = false;
-                log(`✅ Выбран объект #${choice+1}`, 'sys');
-                speak(translations[config.lang].tracking + ' #' + (choice+1));
-            } else {
-                speak(translations[config.lang].chooseOne, () => startListeningForChoice(numCandidates));
-            }
-        };
-        recog.onerror = () => setTimeout(() => startListeningForChoice(numCandidates), 1000);
-        recog.start();
-    }
-
-    // ========== Запуск/остановка трекинга ==========
-    function startTracking(rangesArray) {
-        if (trackingActive) stopTracking();
-        setColorRangesFromAI(rangesArray);
-        trackingActive = true;
-        trackStatus.textContent = 'ON';
-        trackStatus.className = 'esp-connected';
-        selectedCandidateIndex = -1;
-        awaitingUserChoice = false;
-        log(`🎯 Режим слежения активирован. Диапазонов: ${colorRanges.length}`, 'sys');
-        lastTimestamp = performance.now();
-        frameCount = 0;
-        trackingLoop();
-    }
-
-    function stopTracking() {
-        if (trackingActive) {
-            trackingActive = false;
-            trackStatus.textContent = 'OFF';
-            trackStatus.className = 'esp-disconnected';
-            if (trackingLoopId) {
-                cancelAnimationFrame(trackingLoopId);
-                trackingLoopId = null;
-            }
-            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            // Очищаем маску
-            if (cvMask) cvMask.setTo(new cv.Scalar(0));
-            cv.imshow(maskCanvas, cvMask);
-            xPosEl.textContent = '-'; yPosEl.textContent = '-';
-            objectSizeEl.textContent = '-'; confidenceEl.textContent = '-';
-            log('⏹ Режим слежения отключен', 'sys');
-        }
-    }
-
-    function trackingLoop() {
-        if (!trackingActive) return;
-        const now = performance.now();
-        frameCount++;
-        if (now - lastTimestamp >= 1000) {
-            fps = Math.round((frameCount * 1000) / (now - lastTimestamp));
-            fpsEl.textContent = fps;
-            frameCount = 0;
-            lastTimestamp = now;
-        }
-        processFrameWithOpenCV();
-        trackingLoopId = requestAnimationFrame(trackingLoop);
-    }
-
-    // ========== ESP32 Communication ==========
-    async function connectToESP32() {
-        log(`Проверяю подключение к ESP32: ${config.ip}`, 'sys');
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-            await fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors', signal: controller.signal }).catch(() => null);
-            clearTimeout(timeoutId);
-            config.espConnected = true;
-            espStatus.textContent = 'CONNECTED';
-            espStatus.className = 'esp-connected';
-            espPanel.style.display = 'block';
-            log('✅ Успешно подключено к ESP32!', 'sys');
-            speak(translations[config.lang].esp + ' connected');
-        } catch (error) {
-            log('❌ Не удалось подключиться к ESP32. Команды будут выводиться только в терминал.', 'sys');
-            espStatus.textContent = 'ERROR';
-        }
-    }
-
-    function testESP32Connection() {
-        if (!config.ip) return;
-        log('Тестирую подключение к ESP32...', 'sys');
-        fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors' })
-            .then(() => {
-                log('✅ ESP32 отвечает', 'sys');
-                espStatus.textContent = 'CONNECTED';
-                espStatus.className = 'esp-connected';
-                config.espConnected = true;
-            })
-            .catch(() => {
-                log('❌ ESP32 не отвечает', 'sys');
-                espStatus.textContent = 'DISCONNECTED';
-                espStatus.className = 'esp-disconnected';
-                config.espConnected = false;
-            });
-    }
-
-    function sendESP32Command(command) {
-        if (!config.espConnected || !config.ip) {
-            log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, 'sys');
-            return;
-        }
-        fetch(`http://${config.ip}/command`, { method: 'POST', mode: 'no-cors', body: command })
-            .catch(err => console.error('Ошибка отправки команды:', err));
-        log(`📤 Команда отправлена на ESP32: ${command}`, 'sys');
-    }
-
-    // ========== Калибровка кликом ==========
-    let isCalibrating = false;
-    calibrateBtn.addEventListener('click', () => {
-        if (!videoElement.srcObject) return;
-        isCalibrating = true;
-        log(translations[config.lang].calibrate, 'sys');
-        videoElement.style.cursor = 'crosshair';
-        videoElement.addEventListener('click', handleCalibrationClick, { once: true });
-    });
-
-    function handleCalibrationClick(event) {
-        const rect = videoElement.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        const scaleX = videoElement.videoWidth / rect.width;
-        const scaleY = videoElement.videoHeight / rect.height;
-        const imageX = Math.floor(x * scaleX);
-        const imageY = Math.floor(y * scaleY);
-        const size = 3;
-        let sumH = 0, sumS = 0, sumV = 0, count = 0;
-        hiddenCtx.drawImage(videoElement, 0, 0);
-        for (let dy = -size; dy <= size; dy++) {
-            for (let dx = -size; dx <= size; dx++) {
-                const px = imageX + dx;
-                const py = imageY + dy;
-                if (px >= 0 && px < videoElement.videoWidth && py >= 0 && py < videoElement.videoHeight) {
-                    const pixel = hiddenCtx.getImageData(px, py, 1, 1).data;
-                    const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
-                    sumH += hsv.h;
-                    sumS += hsv.s;
-                    sumV += hsv.v;
-                    count++;
-                }
-            }
-        }
-        if (count === 0) return;
-        currentColor.h = Math.round(sumH / count);
-        currentColor.s = Math.round((sumS / count) * 100);
-        currentColor.v = Math.round((sumV / count) * 100);
-        currentColor.threshold = { h: 15, s: 30, v: 30 };
-        updateColorUI();
-        // Создаём один диапазон (с возможным оборачиванием)
-        let hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
-        let hMax = (currentColor.h + currentColor.threshold.h) % 360;
-        let sMin = Math.max(0, Math.round(currentColor.s * 2.55 - currentColor.threshold.s * 2.55));
-        let sMax = Math.min(255, Math.round(currentColor.s * 2.55 + currentColor.threshold.s * 2.55));
-        let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
-        let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
-        let range = { hMin, hMax, sMin, sMax, vMin, vMax };
-        colorRanges = splitHueRange(range);
-        log(`✅ Цвет откалиброван: H=${currentColor.h}°, S=${currentColor.s}%, V=${currentColor.v}%`, 'sys');
-        videoElement.style.cursor = 'default';
-        isCalibrating = false;
-    }
-
-    applyColorBtn.addEventListener('click', () => {
-        if (trackingActive) stopTracking();
-        let hMin = (currentColor.h - currentColor.threshold.h + 360) % 360;
-        let hMax = (currentColor.h + currentColor.threshold.h) % 360;
-        let sMin = Math.max(0, Math.round(currentColor.s * 2.55 - currentColor.threshold.s * 2.55));
-        let sMax = Math.min(255, Math.round(currentColor.s * 2.55 + currentColor.threshold.s * 2.55));
-        let vMin = Math.max(0, Math.round(currentColor.v * 2.55 - currentColor.threshold.v * 2.55));
-        let vMax = Math.min(255, Math.round(currentColor.v * 2.55 + currentColor.threshold.v * 2.55));
-        let range = { hMin, hMax, sMin, sMax, vMin, vMax };
-        colorRanges = splitHueRange(range);
-        startTracking(colorRanges);
-    });
-
-    // ========== Голосовой интерфейс и ИИ ==========
-    let recognition = null;
-
-    function boot() {
-        config.key = document.getElementById('key').value.trim();
-        config.ip = document.getElementById('ip').value.trim();
-        if (!config.key) return alert('Введите API ключ OpenRouter!');
-        setupPanel.style.display = 'none';
-        config.active = true;
-        updateLanguage(langSelect.value);
-        log('Инициализация Trinity с OpenCV трекером...', 'sys');
-        initCamera();
-        if (config.ip) connectToESP32();
-        speak(translations[config.lang].ready, startWaitingForName);
-    }
-
-    function startWaitingForName() {
-        if (!config.active) return;
-        st.innerText = translations[config.lang].listeningName;
-        st.style.color = '#ffaa00';
-        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
-        recognition.continuous = false;
-        recognition.onresult = (event) => {
-            const text = event.results[0][0].transcript.toLowerCase();
-            log(`<span class="user">${text}</span>`);
-            if (text.includes('пиксель') || text.includes('pixel')) {
-                handleTrigger();
-            } else {
-                safeRestart();
-            }
-        };
-        recognition.onend = () => { if (st.innerText === translations[config.lang].listeningName) safeRestart(); };
-        try { recognition.start(); } catch (e) { setTimeout(safeRestart, 100); }
-    }
-
-    function handleTrigger() {
-        st.innerText = translations[config.lang].replying;
-        const reply = config.lang === 'ru' ? 'Слушаю тебя!' : 'I\'m listening!';
-        log(`PIXEL: ${reply}`, 'sys');
-        speak(reply, () => {
-            st.innerText = translations[config.lang].listeningCmd;
-            log(translations[config.lang].listeningCmd, 'sys');
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
-            recognition.continuous = false;
-            recognition.onresult = (event) => {
-                const cmdText = event.results[0][0].transcript;
-                log(`<span class="user">ЗАПРОС: "${cmdText}"</span>`);
-                askTrinity(cmdText);
-            };
-            recognition.onend = () => { if (st.innerText === translations[config.lang].listeningCmd) safeRestart(); };
-            try { recognition.start(); } catch (e) { safeRestart(); }
-        });
-    }
-
-    async function askTrinity(prompt) {
-        st.innerText = translations[config.lang].thinking;
-        log('Trinity анализирует (с камерой)...', 'sys');
-        const imageDataUrl = await captureImage();
-        if (imageDataUrl) log('📸 Кадр с камеры захвачен', 'sys');
-        let userContent;
-        if (imageDataUrl) {
-            userContent = [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: imageDataUrl } }
-            ];
-        } else {
-            userContent = prompt;
-        }
-
-        try {
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${config.key}`,
-                    'HTTP-Referer': window.location.href,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: "qwen/qwen3-vl-235b-a22b-thinking",
-                    messages: [
-                        {
-                            role: 'system',
-                            content: `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай на языке пользователя (ru или en).
-
-Тебе может быть предоставлено изображение с камеры робота. 
-- Если пользователь просит следить за объектом, ты должен проанализировать сцену и выбрать такой цвет (или несколько цветов) объекта, который максимально контрастирует с фоном и не встречается у других объектов.
-- Верни команду TRACK_START с одним или несколькими диапазонами HSV (H 0-360, S 0-255, V 0-255). Диапазоны разделяй символом '|'. Например: TRACK_START|0,15,100,255,100,255|25,35,80,200,50,150
-- Если объект имеет несколько цветов, укажи несколько диапазонов.
-- Если нужно остановить слежение, используй TRACK_STOP.
-- Для других команд используй стандартные: MOVE_FORWARD|SPEED|TIME и т.д.
-
-Формат ответа:
-Text: [твой текстовый ответ]
-Commands: [команды через ; или null]`
-                        },
-                        { role: 'user', content: userContent }
-                    ],
-                    temperature: 0.6
-                })
-            });
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-
-            const aiRaw = data.choices[0].message.content;
-            const txt = aiRaw.match(/Text:\s*(.*)/i)?.[1] || aiRaw;
-            const cmdMatch = aiRaw.match(/Commands:\s*(.*)/i);
-            let cmds = cmdMatch ? cmdMatch[1] : 'null';
-            cmds = cmds.trim();
-
-            log(`PIXEL: ${txt}`, 'ai');
-
-            if (cmds !== 'NULL' && cmds !== '' && cmds.toLowerCase() !== 'null') {
-                const commands = cmds.split(';').filter(c => c.trim() !== '');
-                for (let cmd of commands) {
-                    cmd = cmd.trim();
-                    if (cmd.startsWith('TRACK_START|')) {
-                        const parts = cmd.split('|').slice(1);
-                        let ranges = [];
-                        for (let part of parts) {
-                            let nums = part.split(',').map(Number);
-                            if (nums.length === 6) {
-                                ranges.push({
-                                    hMin: nums[0], hMax: nums[1],
-                                    sMin: nums[2], sMax: nums[3],
-                                    vMin: nums[4], vMax: nums[5]
-                                });
-                            }
-                        }
-                        if (ranges.length > 0) {
-                            startTracking(ranges);
-                        } else {
-                            log(`❌ Неверный формат TRACK_START: ${cmd}`, 'sys');
-                        }
-                    } else if (cmd === 'TRACK_STOP') {
-                        stopTracking();
-                    } else {
-                        log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, 'sys');
-                        if (config.espConnected && config.ip) sendESP32Command(cmd);
-                    }
-                }
-            }
-
-            speak(txt, startWaitingForName);
-        } catch (e) {
-            log('ОШИБКА: ' + e.message, 'sys');
-            speak(translations[config.lang].error, startWaitingForName);
-        }
-    }
-
-    function speak(text, callback) {
-        window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = config.lang === 'ru' ? 'ru-RU' : 'en-US';
-        msg.rate = 0.9;
-        msg.onend = callback;
-        window.speechSynthesis.speak(msg);
-    }
-
-    function safeRestart() {
-        if (config.active) {
-            setTimeout(() => { try { recognition.start(); } catch (e) {} }, 100);
-        }
-    }
-
-    function stopListening() {
-        if (recognition) {
-            recognition.abort();
-        }
-    }
-
-    // ========== Очистка при выгрузке ==========
-    window.addEventListener('beforeunload', () => {
-        if (videoStream) videoStream.getTracks().forEach(t => t.stop());
-        stopTracking();
-
-        // Освобождаем OpenCV ресурсы
-        if (cvSrc) cvSrc.delete();
-        if (cvHsv) cvHsv.delete();
-        if (cvMask) cvMask.delete();
-        if (cvTempMask) cvTempMask.delete();
-        if (cvContourMask) cvContourMask.delete();
-        if (cvKernel) cvKernel.delete();
-        if (cvContours) cvContours.delete();
-        if (cvHierarchy) cvHierarchy.delete();
-    });
-
-    // ========== Инициализация ==========
-    bootBtn.addEventListener('click', boot);
-    stopTrackingBtn.addEventListener('click', stopTracking);
-
-    hueSlider.addEventListener('input', () => { currentColor.h = parseInt(hueSlider.value); updateColorUI(); });
-    satSlider.addEventListener('input', () => { currentColor.s = parseInt(satSlider.value); updateColorUI(); });
-    valSlider.addEventListener('input', () => { currentColor.v = parseInt(valSlider.value); updateColorUI(); });
-    sensSlider.addEventListener('input', () => {
-        currentColor.threshold.h = parseInt(sensSlider.value);
-        sensVal.textContent = currentColor.threshold.h;
-        updateColorUI();
-    });
-
-    updateColorUI();
+    cv.imshow(canvasOutput, src);
+    cv.imshow(canvasMask, mask);
+
+    lower.delete();
+    upper.delete();
+    requestAnimationFrame(process);
+  }
+
+  process();
+};
 </script>
 </body>
 </html>
