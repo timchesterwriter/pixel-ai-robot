@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIXEL AI: Trinity Edition + Vision (локально)</title>
+    <title>PIXEL AI: Локальное зрение + ESP32 (исправлено)</title>
+    <!-- Transformers.js для запуска моделей в браузере -->
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1"></script>
     <style>
         :root { --neon: #ffaa00; --bg: #0a0a0a; }
         body { margin: 0; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; }
         #terminal { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #222; }
         .controls { padding: 20px; background: #111; display: flex; flex-direction: column; gap: 10px; }
-        input { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
+        input, select { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 5px; outline: none; }
         button { padding: 15px; background: var(--neon); border: none; font-weight: bold; border-radius: 5px; cursor: pointer; color: #000; }
         .sys { color: #00d2ff; }
         .ai { color: #fff; border-left: 2px solid var(--neon); padding-left: 10px; margin: 5px 0; }
@@ -19,19 +21,24 @@
         .esp-disconnected { color: #ff4757; }
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
+        #progress { width: 100%; height: 4px; background: #333; margin-top: 10px; display: none; }
+        #progress-bar { height: 100%; background: var(--neon); width: 0%; transition: width 0.3s; }
         
+        /* ESP32 Connection Panel */
         #espPanel {
             padding: 15px;
             background: #1a1a1a;
             border-top: 1px solid #333;
             display: none;
         }
+        
         .esp-controls {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
             margin-top: 10px;
         }
+        
         .esp-btn {
             padding: 10px;
             background: #222;
@@ -42,44 +49,31 @@
             font-size: 12px;
             text-align: center;
         }
+        
         .esp-btn:hover {
             background: #333;
             border-color: var(--neon);
         }
-        .model-status {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-left: 10px;
-        }
-        .loading { background: #ffaa00; color: #000; }
-        .ready { background: #00ff9d; color: #000; }
-        .error { background: #ff4757; color: #fff; }
-        .warning { background: #ffaa00; color: #000; }
     </style>
-    <!-- Подключаем библиотеки с запасными ссылками -->
-    <script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.46/dist/web-llm.js"></script>
-    <script src="https://unpkg.com/vosk-browser@0.0.6/dist/vosk-browser.min.js"></script>
 </head>
 <body>
 
-<div style="padding: 10px; font-size: 12px; background: #111; display: flex; flex-wrap: wrap; gap: 15px;">
-    <div>STATUS: <span id="st">ЗАГРУЗКА МОДЕЛЕЙ</span></div>
-    <div>LLM: <span id="llmStatus" class="model-status loading">⏳</span></div>
-    <div>VOSK: <span id="voskStatus" class="model-status loading">⏳</span></div>
-    <div>ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span></div>
-    <div>CAMERA: <span id="camStatus" class="esp-disconnected">OFF</span></div>
-    <div>CORE: TRINITY+LOCAL <span class="blink">_</span></div>
+<div style="padding: 10px; font-size: 12px; background: #111;">
+    STATUS: <span id="st">READY</span> | ESP32: <span id="espStatus" class="esp-disconnected">DISCONNECTED</span> | CAMERA: <span id="camStatus" class="esp-disconnected">OFF</span> | МОДЕЛЬ: <span id="modelStatus">не загружена</span> <span class="blink">_</span>
 </div>
 
 <div id="terminal"></div>
+<div id="progress"><div id="progress-bar"></div></div>
 
-<!-- Панель управления -->
+<!-- Setup Panel -->
 <div class="controls" id="setup">
-    <input type="text" id="ip" placeholder="IP Робота (ESP32) - опционально">
-    <button onclick="boot()">ЗАПУСТИТЬ СИСТЕМУ</button>
-    <button onclick="toggleMicrophone()" id="micBtn" disabled>🎤 Включить микрофон</button>
+    <select id="modelSelect">
+        <option value="Xenova/qwen2-vl-2b-instruct">Qwen2-VL-2B-Instruct (2GB, рекомендуется)</option>
+        <option value="Xenova/phi-3-vision-128k-instruct">Phi-3-Vision-128k (2.5GB)</option>
+        <option value="Xenova/blip-image-captioning-base">BLIP (базовое описание, легче)</option>
+    </select>
+    <input type="text" id="ip" placeholder="IP Робота (ESP32)">
+    <button onclick="boot()">ЗАГРУЗИТЬ МОДЕЛЬ И ЗАПУСТИТЬ</button>
 </div>
 
 <!-- ESP32 Control Panel -->
@@ -88,6 +82,7 @@
         <div>ESP32 CONTROLS:</div>
         <button onclick="testESP32Connection()" style="padding: 8px 12px; font-size: 12px;">🔧 TEST</button>
     </div>
+    
     <div class="esp-controls">
         <div class="esp-btn" onclick="sendESP32Command('LED_ON')">💡 ON</div>
         <div class="esp-btn" onclick="sendESP32Command('LED_OFF')">💡 OFF</div>
@@ -106,355 +101,348 @@
 
 <script>
     (function() {
-        // ========== Глобальные переменные ==========
-        const term = document.getElementById('terminal');
-        const st = document.getElementById('st');
-        const espStatus = document.getElementById('espStatus');
-        const camStatus = document.getElementById('camStatus');
-        const llmStatus = document.getElementById('llmStatus');
-        const voskStatus = document.getElementById('voskStatus');
-        const espPanel = document.getElementById('espPanel');
-        const setupPanel = document.getElementById('setup');
-        const micBtn = document.getElementById('micBtn');
-        const ipInput = document.getElementById('ip');
-
-        let config = { 
-            ip: '', 
-            active: false,
-            espConnected: false
-        };
-
-        // Модели
-        let llmEngine = null;            // WebLLM
-        let voskRecognizer = null;       // Vosk
-        let voskModel = null;
-        let vosk;                         // экземпляр VoskBrowser
-
-        // Аудио
-        let audioContext = null;
-        let microphoneStream = null;
-        let processor = null;
-        let isListening = false;
-        let wakeWordDetected = false;
-
-        // Камера
-        let videoStream = null;
-        let videoElement = null;
-        let canvas = null;
-
-        // Флаги загрузки
-        let voskReady = false;
-        let llmReady = false;
-
-        // ========== Вспомогательные функции ==========
-        function log(msg, cl = '') {
-            const d = document.createElement('div');
-            if(cl) d.className = cl;
-            d.innerHTML = `> ${msg}`;
-            term.appendChild(d);
-            term.scrollTop = term.scrollHeight;
+        // Проверка загрузки Transformers.js
+        if (!self.transformers) {
+            alert("Ошибка: Transformers.js не загрузился. Проверьте интернет-соединение или обновите страницу.");
+            return;
         }
+    })();
 
-        function speak(text, callback) {
-            window.speechSynthesis.cancel();
-            const msg = new SpeechSynthesisUtterance(text);
-            msg.lang = 'ru-RU';
-            msg.rate = 0.9;
-            msg.onend = callback;
-            window.speechSynthesis.speak(msg);
-        }
+    const term = document.getElementById('terminal');
+    const st = document.getElementById('st');
+    const espStatus = document.getElementById('espStatus');
+    const camStatus = document.getElementById('camStatus');
+    const modelStatus = document.getElementById('modelStatus');
+    const espPanel = document.getElementById('espPanel');
+    const setupPanel = document.getElementById('setup');
+    const progressDiv = document.getElementById('progress');
+    const progressBar = document.getElementById('progress-bar');
+    
+    let config = { 
+        modelId: 'Xenova/qwen2-vl-2b-instruct',
+        ip: '', 
+        active: false,
+        espConnected: false,
+        pipeline: null
+    };
 
-        // ========== Инициализация камеры (необязательно) ==========
-        async function initCamera() {
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                log("✅ Камера инициализирована", "sys");
-                camStatus.textContent = "ON";
-                camStatus.className = "esp-connected";
-                
-                videoElement = document.createElement('video');
-                videoElement.srcObject = videoStream;
-                videoElement.play();
-                videoElement.style.display = 'none';
-                document.body.appendChild(videoElement);
-                
-                canvas = document.createElement('canvas');
-                canvas.style.display = 'none';
-                document.body.appendChild(canvas);
-            } catch (err) {
-                log("⚠️ Камера недоступна: " + err.message + " (продолжаем без видео)", "sys");
-                camStatus.textContent = "UNAVAILABLE";
-                camStatus.className = "model-status warning";
-                videoStream = null;
-            }
-        }
+    // Camera related variables
+    let videoStream = null;
+    let videoElement = null;
+    let canvas = null;
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ru-RU';
+    recognition.continuous = false;
 
-        // ========== Инициализация Vosk ==========
-        async function initVosk() {
-            try {
-                voskStatus.textContent = '⏳';
-                voskStatus.className = 'model-status loading';
-                log("Загрузка модели Vosk (vosk-model-small-ru-0.22)...", "sys");
+    // Чёрный пиксель 1x1 в формате dataURL (заглушка для модели, если камера недоступна)
+    const BLACK_PIXEL_DATAURL = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=';
 
-                // Проверяем, доступен ли VoskBrowser
-                if (typeof VoskBrowser === 'undefined') {
-                    throw new Error('Библиотека VoskBrowser не загружена. Проверьте подключение скрипта.');
-                }
+    function log(msg, cl = '') {
+        const d = document.createElement('div');
+        if(cl) d.className = cl;
+        d.innerHTML = `> ${msg}`;
+        term.appendChild(d);
+        term.scrollTop = term.scrollHeight;
+    }
 
-                vosk = new VoskBrowser();
-                
-                // Укажите правильный путь к модели на вашем сервере
-                // Если модель лежит в папке models рядом с HTML, используйте '/models/vosk-model-small-ru-0.22'
-                const modelPath = '/models/vosk-model-small-ru-0.22';
-                await vosk.loadModel(modelPath);
-                voskModel = vosk.model;
-                
-                voskRecognizer = new vosk.Recognizer({ model: voskModel, sampleRate: 16000 });
-                
-                voskReady = true;
-                voskStatus.textContent = '✓ ГОТОВО';
-                voskStatus.className = 'model-status ready';
-                log("✅ Vosk модель загружена", "sys");
-            } catch (e) {
-                voskStatus.textContent = '✗ ОШИБКА';
-                voskStatus.className = 'model-status error';
-                log("❌ Ошибка загрузки Vosk: " + e.message, "sys");
-                console.error(e);
-                // Не выбрасываем ошибку дальше, чтобы не блокировать другие компоненты
-            }
-        }
-
-        // ========== Инициализация WebLLM (Gemma 2B) ==========
-        async function initLLM() {
-            try {
-                llmStatus.textContent = '⏳';
-                llmStatus.className = 'model-status loading';
-                log("Загрузка модели Gemma 2B через WebLLM (WebGPU)...", "sys");
-                log("Это может занять несколько минут при первом запуске", "sys");
-
-                // Проверяем, загружен ли webllm
-                if (typeof webllm === 'undefined') {
-                    throw new Error('Библиотека webllm не загружена. Проверьте подключение скрипта.');
-                }
-
-                // Проверяем поддержку WebGPU (необязательно, но полезно)
-                if (!navigator.gpu) {
-                    throw new Error('WebGPU не поддерживается вашим браузером. Используйте Chrome/Edge Canary с флагом #enable-unsafe-webgpu.');
-                }
-
-                llmEngine = await webllm.CreateMLCEngine(
-                    'gemma-2b-it-q4f32_1',
-                    { temperature: 0.6, top_p: 0.9 }
-                );
-                
-                llmReady = true;
-                llmStatus.textContent = '✓ ГОТОВО';
-                llmStatus.className = 'model-status ready';
-                log("✅ Модель Gemma готова к работе", "sys");
-            } catch (e) {
-                llmStatus.textContent = '✗ ОШИБКА';
-                llmStatus.className = 'model-status error';
-                log("❌ Ошибка загрузки LLM: " + e.message, "sys");
-                console.error(e);
-                // Не выбрасываем ошибку
-            }
-        }
-
-        // ========== Подключение к ESP32 ==========
-        async function connectToESP32() {
-            if (!config.ip) return;
-            log(`Проверяю подключение к ESP32: ${config.ip}`, "sys");
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                await fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors', signal: controller.signal }).catch(() => null);
-                clearTimeout(timeoutId);
-                
-                config.espConnected = true;
-                espStatus.textContent = "CONNECTED";
-                espStatus.className = "esp-connected";
-                espPanel.style.display = 'block';
-                log("✅ Успешно подключено к ESP32!", "sys");
-                speak("Подключение к роботу установлено.");
-            } catch (error) {
-                log("❌ Не удалось подключиться к ESP32", "sys");
-                espStatus.textContent = "ERROR";
-            }
-        }
-
-        function testESP32Connection() {
-            if (!config.ip) return;
-            log("Тестирую подключение к ESP32...", "sys");
-            fetch(`http://${config.ip}/ping`, { method: 'GET', mode: 'no-cors' })
-                .then(() => {
-                    log("✅ ESP32 отвечает", "sys");
-                    espStatus.textContent = "CONNECTED";
-                    espStatus.className = "esp-connected";
-                    config.espConnected = true;
-                })
-                .catch(() => {
-                    log("❌ ESP32 не отвечает", "sys");
-                    espStatus.textContent = "DISCONNECTED";
-                    espStatus.className = "esp-disconnected";
-                    config.espConnected = false;
-                });
-        }
-
-        function sendESP32Command(command) {
-            if (!config.espConnected || !config.ip) {
-                log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, "sys");
-                return;
-            }
-            fetch(`http://${config.ip}/command`, { method: 'POST', mode: 'no-cors', body: command })
-                .catch(error => console.error("Ошибка отправки команды:", error));
-            log(`📤 Команда отправлена на ESP32: ${command}`, "sys");
-        }
-
-        // ========== Запуск системы ==========
-        async function boot() {
-            config.ip = ipInput.value.trim();
-            setupPanel.style.display = 'none';
-            config.active = true;
+    // === КАМЕРА: запрос разрешения и инициализация ===
+    async function initCamera() {
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            log("✅ Камера инициализирована", "sys");
+            camStatus.textContent = "ON";
+            camStatus.className = "esp-connected";
             
-            log("Инициализация Trinity (локальная версия)...", "sys");
-            st.innerText = "ЗАГРУЗКА МОДЕЛЕЙ";
+            videoElement = document.createElement('video');
+            videoElement.srcObject = videoStream;
+            videoElement.play();
+            videoElement.style.display = 'none';
+            document.body.appendChild(videoElement);
             
-            // Запускаем все инициализации параллельно, но не ждём их все, чтобы не блокировать UI
-            const promises = [initCamera(), initVosk(), initLLM()];
+            canvas = document.createElement('canvas');
+            canvas.style.display = 'none';
+            document.body.appendChild(canvas);
+        } catch (err) {
+            log("❌ Не удалось получить доступ к камере: " + err.message, "sys");
+            camStatus.textContent = "OFF";
+            camStatus.className = "esp-disconnected";
+            videoStream = null;
+        }
+    }
+
+    // Захват текущего кадра с камеры и возврат dataURL
+    async function captureImage() {
+        if (!videoElement || !canvas || videoElement.readyState < 2) {
+            return null;
+        }
+        
+        const maxWidth = 640;
+        let width = videoElement.videoWidth;
+        let height = videoElement.videoHeight;
+        
+        if (width === 0 || height === 0) return null;
+        
+        if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(videoElement, 0, 0, width, height);
+        
+        return canvas.toDataURL('image/jpeg', 0.8);
+    }
+
+    // === ЗАГРУЗКА ЛОКАЛЬНОЙ МОДЕЛИ ===
+    async function loadModel(modelId) {
+        log(`⏳ Загрузка модели ${modelId}... Это может занять несколько минут при первом запуске.`, "sys");
+        modelStatus.textContent = "загрузка...";
+        progressDiv.style.display = 'block';
+        
+        try {
+            // Получаем pipeline из глобального объекта transformers (без большой буквы)
+            const { pipeline } = self.transformers;
             
-            // Не используем await Promise.all, чтобы ошибки не прерывали выполнение
-            // Просто запускаем и ждём завершения всех
-            Promise.allSettled(promises).then(() => {
-                if (voskReady && llmReady) {
-                    micBtn.disabled = false;
-                    st.innerText = "ГОТОВО";
-                    log("✅ Система полностью загружена. Нажмите 'Включить микрофон' и скажите 'Пиксель'", "sys");
-                } else {
-                    st.innerText = "ЧАСТИЧНО ГОТОВО";
-                    log("⚠️ Некоторые компоненты не загрузились. Микрофон может не работать.", "sys");
+            // Определяем задачу в зависимости от модели
+            let task = 'image-to-text';
+            if (modelId.includes('blip')) {
+                task = 'image-to-text';
+            } else {
+                // Для vision-language моделей используем 'image-to-text', он должен работать
+                task = 'image-to-text';
+            }
+            
+            config.pipeline = await pipeline(task, modelId, {
+                progress_callback: (progress) => {
+                    if (progress.status === 'progress') {
+                        const percent = (progress.loaded / progress.total) * 100;
+                        progressBar.style.width = percent + '%';
+                    }
                 }
             });
-
-            // Подключаемся к ESP32, если указан IP
-            if (config.ip) await connectToESP32();
-        }
-
-        // ========== Управление микрофоном ==========
-        async function toggleMicrophone() {
-            if (isListening) {
-                stopMicrophone();
-                micBtn.textContent = "🎤 Включить микрофон";
-            } else {
-                await startMicrophone();
-                micBtn.textContent = "⏹ Остановить микрофон";
-            }
-        }
-
-        async function startMicrophone() {
-            if (!voskReady || !voskRecognizer) {
-                log("❌ Vosk не готов. Микрофон не может быть запущен.", "sys");
-                return;
-            }
-            try {
-                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new AudioContext({ sampleRate: 16000 });
-                const source = audioContext.createMediaStreamSource(microphoneStream);
-                
-                processor = audioContext.createScriptProcessor(4096, 1, 1);
-                source.connect(processor);
-                processor.connect(audioContext.destination);
-
-                processor.onaudioprocess = (e) => {
-                    if (!voskRecognizer) return;
-                    
-                    const inputData = e.inputBuffer.getChannelData(0);
-                    const int16Buffer = new Int16Array(inputData.length);
-                    for (let i = 0; i < inputData.length; i++) {
-                        int16Buffer[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
-                    }
-                    
-                    if (voskRecognizer.acceptWaveform(int16Buffer)) {
-                        const result = voskRecognizer.result();
-                        const text = result.text.toLowerCase().trim();
-                        if (text) {
-                            log(`<span class="user">Распознано: "${text}"</span>`);
-                            handleSpeechText(text);
-                        }
-                    }
-                };
-
-                isListening = true;
-                log("🎤 Микрофон включён, жду имя...", "sys");
-            } catch (err) {
-                log("❌ Ошибка доступа к микрофону: " + err.message, "sys");
-            }
-        }
-
-        function stopMicrophone() {
-            if (processor) {
-                processor.disconnect();
-                processor = null;
-            }
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(t => t.stop());
-                microphoneStream = null;
-            }
-            if (audioContext) {
-                audioContext.close();
-                audioContext = null;
-            }
-            isListening = false;
-            wakeWordDetected = false;
-            log("🎤 Микрофон выключен", "sys");
-        }
-
-        // ========== Обработка распознанного текста ==========
-        function handleSpeechText(text) {
-            if (!config.active) return;
-
-            if (!wakeWordDetected) {
-                if (text.includes("пиксель") || text.includes("pixel")) {
-                    wakeWordDetected = true;
-                    const reply = "Слушаю тебя!";
-                    log(`PIXEL: ${reply}`, "ai");
-                    speak(reply, () => {
-                        st.innerText = "ЖДУ КОМАНДУ";
-                    });
-                }
-                return;
-            }
-
-            wakeWordDetected = false;
-            st.innerText = "ДУМАЮ";
-            askGemma(text);
-        }
-
-        // ========== Запрос к локальной Gemma ==========
-        async function askGemma(prompt) {
-            if (!llmReady || !llmEngine) {
-                log("❌ Модель LLM не готова.", "sys");
-                speak("Извините, языковая модель ещё не загружена.", () => {
-                    st.innerText = "ЖДУ ИМЯ";
-                });
-                return;
-            }
-
-            log(`Запрос к Gemma: "${prompt}"`, "sys");
             
-            try {
-                const systemPrompt = `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай ТОЛЬКО на русском языке.
+            log(`✅ Модель ${modelId} загружена`, "sys");
+            modelStatus.textContent = "готова";
+            progressDiv.style.display = 'none';
+            return true;
+        } catch (error) {
+            log(`❌ Ошибка загрузки модели: ${error.message}`, "sys");
+            modelStatus.textContent = "ошибка";
+            progressDiv.style.display = 'none';
+            return false;
+        }
+    }
+
+    // === ОСНОВНАЯ ЛОГИКА ===
+    async function boot() {
+        config.modelId = document.getElementById('modelSelect').value;
+        config.ip = document.getElementById('ip').value.trim();
+        
+        setupPanel.style.display = 'none';
+        config.active = true;
+        
+        log("Инициализация системы с локальным зрением...", "sys");
+        
+        // Загружаем модель
+        const modelLoaded = await loadModel(config.modelId);
+        if (!modelLoaded) {
+            log("❌ Не удалось загрузить модель. Перезагрузите страницу и попробуйте другую.", "sys");
+            return;
+        }
+        
+        // Запрашиваем доступ к камере
+        await initCamera();
+        
+        // Проверяем подключение к ESP32 если указан IP
+        if(config.ip) {
+            await connectToESP32();
+        }
+        
+        speak("Система активирована. Жду команды.", startWaitingForName);
+    }
+
+    async function connectToESP32() {
+        log(`Проверяю подключение к ESP32: ${config.ip}`, "sys");
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            await fetch(`http://${config.ip}/ping`, {
+                method: 'GET',
+                mode: 'no-cors',
+                signal: controller.signal
+            }).catch(() => null);
+            
+            clearTimeout(timeoutId);
+            
+            config.espConnected = true;
+            espStatus.textContent = "CONNECTED";
+            espStatus.className = "esp-connected";
+            espPanel.style.display = 'block';
+            
+            log("✅ Успешно подключено к ESP32!", "sys");
+            speak("Подключение к роботу установлено.");
+            
+        } catch (error) {
+            log("❌ Не удалось подключиться к ESP32", "sys");
+            log("Команды будут выводиться только в терминал", "sys");
+            espStatus.textContent = "ERROR";
+        }
+    }
+
+    async function testESP32Connection() {
+        if(!config.ip) return;
+        
+        log("Тестирую подключение к ESP32...", "sys");
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            
+            await fetch(`http://${config.ip}/ping`, {
+                method: 'GET',
+                mode: 'no-cors',
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            log("✅ ESP32 отвечает на запросы", "sys");
+            espStatus.textContent = "CONNECTED";
+            espStatus.className = "esp-connected";
+            config.espConnected = true;
+            
+        } catch (error) {
+            log("❌ ESP32 не отвечает", "sys");
+            espStatus.textContent = "DISCONNECTED";
+            espStatus.className = "esp-disconnected";
+            config.espConnected = false;
+        }
+    }
+
+    function sendESP32Command(command) {
+        if(!config.espConnected || !config.ip) {
+            log(`❌ Нет подключения к ESP32 - команда "${command}" не отправлена`, "sys");
+            return;
+        }
+        
+        fetch(`http://${config.ip}/command`, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: command
+        }).catch(error => {
+            console.error("Ошибка отправки команды:", error);
+        });
+        
+        log(`📤 Команда отправлена на ESP32: ${command}`, "sys");
+    }
+
+    // Этап 1: Ожидание активационного имени "Пиксель"
+    function startWaitingForName() {
+        if(!config.active) return;
+        st.innerText = "LISTENING (NAME)";
+        st.style.color = "#ffaa00";
+
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript.toLowerCase();
+            log(`<span class="user">Слышу: "${text}"</span>`);
+            
+            if (text.includes("пиксель") || text.includes("pixel")) {
+                handleTrigger();
+            } else {
+                safeRestart();
+            }
+        };
+
+        recognition.onend = () => { 
+            if(st.innerText === "LISTENING (NAME)") safeRestart(); 
+        };
+        
+        try { 
+            recognition.start(); 
+        } catch(e) {
+            console.error("Ошибка запуска распознавания:", e);
+            setTimeout(safeRestart, 100);
+        }
+    }
+
+    // Этап 2: Реакция на имя и ожидание самой команды
+    function handleTrigger() {
+        st.innerText = "REPLYING";
+        const reply = "Слушаю тебя!";
+        log(`PIXEL: ${reply}`, "sys");
+        
+        speak(reply, () => {
+            st.innerText = "LISTENING (CMD)";
+            log("Говорите команду...", "sys");
+            
+            recognition.onresult = (event) => {
+                const cmdText = event.results[0][0].transcript;
+                log(`<span class="user">ЗАПРОС: "${cmdText}"</span>`);
+                askTrinity(cmdText);
+            };
+            
+            recognition.onend = () => { 
+                if(st.innerText === "LISTENING (CMD)") safeRestart(); 
+            };
+            
+            try { 
+                recognition.start(); 
+            } catch(e) {
+                safeRestart();
+            }
+        });
+    }
+
+    // Этап 3: Запрос к локальной модели (с изображением)
+    async function askTrinity(prompt) {
+        st.innerText = "THINKING";
+        log("Анализирую локальной моделью...", "sys");
+
+        // Захватываем изображение с камеры, если доступно, иначе используем заглушку
+        let imageDataUrl = await captureImage();
+        if (!imageDataUrl) {
+            log("📸 Камера недоступна, использую заглушку", "sys");
+            imageDataUrl = BLACK_PIXEL_DATAURL; // чёрный пиксель
+        } else {
+            log("📸 Кадр с камеры захвачен", "sys");
+        }
+
+        try {
+            if (!config.pipeline) {
+                throw new Error("Модель не загружена");
+            }
+            
+            // Системный промпт (как в оригинале)
+            const systemPrompt = `Ты робот Пиксель. Отвечай кратко и по делу. Отвечай ТОЛЬКО на русском языке.
+
+Тебе может быть предоставлено изображение с камеры робота. 
+- Если пользователь спрашивает о том, что робот видит (например: "что ты видишь?", "какая обстановка?", "есть ли препятствие?", "что перед тобой?"), используй информацию из изображения для ответа.
+- Если вопрос не связан с визуальной информацией, отвечай как обычно, НЕ упоминая наличие фото и не описывая его.
 
 Доступные команды для управления роботом:
 1. ДВИЖЕНИЕ:
    - MOVE_FORWARD|SPEED|TIME - вперед (скорость 0-100, время в мс)
    - MOVE_BACKWARD|SPEED|TIME - назад
-   - ROTATE_LEFT|DEGREES|SPEED - поворот налево
+   - ROTATE_LEFT|DEGREES|SPEED - поворот налево (градусы, скорость 0-100)
    - ROTATE_RIGHT|DEGREES|SPEED - поворот направо
    - STOP - полная остановка
+   - TURN|DEGREES| - повернуться на градусы (использует гироскоп)
 
-2. РЕЖИМЫ: DANCE_1, DANCE_2, DANCE_3, REMOTECONTROL_MODE
+2. РЕЖИМЫ:
+   - REMOTECONTROL_MODE - режим дистанционного управления
+   - DANCE_1 - танец номер 1
+   - DANCE_2 - танец номер 2
+   - DANCE_3 - танец номер 3
+   - DANCE_1,2,3 - несколько танцев сразу
 
-3. УТИЛИТЫ: LED_ON, LED_OFF, WAIT_<секунды>
+3. УТИЛИТЫ:
+   - LED_ON - включить светодиод на ESP32
+   - LED_OFF - выключить светодиод
+   - WAIT_5 - ждать 5 секунд (может быть любое число)
 
 Формат ответа строго такой:
 Text: [твой текстовый ответ на русском языке]
@@ -470,56 +458,88 @@ Commands: MOVE_FORWARD|50|2000, ROTATE_LEFT|90|50
 1. Команды НЕ озвучиваются, только пишутся в терминал
 2. Всегда отвечай на русском
 3. Не используй смайлики в тексте
-4. Если команда не нужна - пиши Commands: null`;
+4. Если команда не нужна - пиши Commands: null
+5. Для ожидания используй WAIT_<секунды>`;
 
-                const reply = await llmEngine.chat.completions.create({
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: prompt }
-                    ]
+            // Полный текст запроса: системный промпт + вопрос пользователя
+            const fullPrompt = `${systemPrompt}\n\nПользователь: ${prompt}\nОтвет:`;
+
+            let output;
+            
+            // Для BLIP (описательная модель) используем отдельную логику
+            if (config.modelId.includes('blip')) {
+                // BLIP возвращает только описание изображения, не умеет отвечать на вопросы.
+                // Получим описание и вставим его в ответ.
+                const result = await config.pipeline(imageDataUrl);
+                const description = result[0]?.generated_text || "не удалось описать";
+                output = `Text: Я вижу: ${description}. ${prompt}\nCommands: null`;
+            } else {
+                // Для vision-language моделей передаём изображение и текст.
+                // В Transformers.js pipeline('image-to-text') ожидает: (image, options)
+                // options могут содержать поле 'text' для промпта.
+                const result = await config.pipeline(imageDataUrl, {
+                    text: fullPrompt,
+                    max_new_tokens: 256,
+                    temperature: 0.6,
                 });
+                // result может быть строкой или массивом
+                output = typeof result === 'string' ? result : (result[0]?.generated_text || result);
+            }
 
-                const aiRaw = reply.choices[0].message.content;
-                
-                const txt = aiRaw.match(/Text:\s*(.*)/i)?.[1] || aiRaw;
-                const cmdMatch = aiRaw.match(/Commands:\s*(.*)/i);
-                let cmds = cmdMatch ? cmdMatch[1] : "null";
-                cmds = cmds.replace(/\s+/g, '').toUpperCase();
-
-                log(`PIXEL: ${txt}`, "ai");
-
-                if (cmds !== "NULL" && cmds !== "") {
-                    const commands = cmds.split(',').filter(cmd => cmd.trim() !== '');
-                    commands.forEach(cmd => {
-                        log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, "sys");
-                        if (config.espConnected) sendESP32Command(cmd.trim());
-                    });
-                }
-
-                speak(txt, () => {
-                    st.innerText = "ЖДУ ИМЯ";
-                });
-
-            } catch (e) {
-                log("ОШИБКА: " + e.message, "sys");
-                speak("Произошла ошибка при обработке запроса", () => {
-                    st.innerText = "ЖДУ ИМЯ";
+            // Парсим ответ модели (ожидаем формат Text: ... Commands: ...)
+            const txtMatch = output.match(/Text:\s*(.*?)(?:\nCommands:|$)/is);
+            const txt = txtMatch ? txtMatch[1].trim() : output;
+            
+            const cmdMatch = output.match(/Commands:\s*(.*)/i);
+            let cmds = cmdMatch ? cmdMatch[1].trim() : "null";
+            cmds = cmds.replace(/\s+/g, '').toUpperCase();
+            
+            log(`PIXEL: ${txt}`, "ai");
+            
+            if (cmds !== "NULL" && cmds !== "") {
+                const commands = cmds.split(',').filter(cmd => cmd.trim() !== '');
+                commands.forEach(cmd => {
+                    log(`<span class="cmd">>>> КОМАНДА: ${cmd}</span>`, "sys");
+                    if(config.espConnected && config.ip) {
+                        sendESP32Command(cmd.trim());
+                    }
                 });
             }
+
+            speak(txt, startWaitingForName);
+
+        } catch (e) {
+            log("ОШИБКА: " + e.message, "sys");
+            speak("Произошла ошибка при обработке запроса", startWaitingForName);
         }
+    }
 
-        // Очистка при выходе
-        window.addEventListener('beforeunload', () => {
-            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
-            stopMicrophone();
-        });
+    function speak(text, callback) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'ru-RU';
+        msg.rate = 0.9;
+        msg.onend = callback;
+        window.speechSynthesis.speak(msg);
+    }
 
-        // Делаем функции глобальными, чтобы они были доступны из HTML
-        window.boot = boot;
-        window.toggleMicrophone = toggleMicrophone;
-        window.testESP32Connection = testESP32Connection;
-        window.sendESP32Command = sendESP32Command;
-    })();
+    function safeRestart() {
+        if(config.active) {
+            setTimeout(() => { 
+                try { 
+                    recognition.start(); 
+                } catch(e) {
+                    console.error("Failed to restart recognition:", e);
+                } 
+            }, 100);
+        }
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+        }
+    });
 </script>
 </body>
 </html>
