@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Live Voice Chat</title>
+    <title>Gemini Live Voice Chat - Рабочая версия</title>
     <style>
         * {
             margin: 0;
@@ -168,13 +168,13 @@
             background: #adb5bd;
         }
 
-        .status-indicator.active {
+        .status-indicator.connected {
             background: #40c057;
             box-shadow: 0 0 10px #40c057;
             animation: pulse 2s infinite;
         }
 
-        .status-indicator.listening {
+        .status-indicator.speaking {
             background: #fa5252;
             animation: pulse 1s infinite;
         }
@@ -249,21 +249,16 @@
             background: #5a6268;
         }
 
-        .mic-visualization {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            height: 30px;
-            margin: 10px 0;
-        }
-
-        .mic-bar {
-            width: 4px;
-            height: 15px;
-            background: #667eea;
-            border-radius: 2px;
-            transition: height 0.2s;
+        .debug-panel {
+            margin-top: 15px;
+            padding: 10px;
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 12px;
+            border-radius: 8px;
+            max-height: 150px;
+            overflow-y: auto;
         }
 
         .footer {
@@ -273,17 +268,6 @@
             font-size: 12px;
             background: #f8f9fa;
             border-top: 1px solid #e9ecef;
-        }
-
-        .footer a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .info-text {
-            font-size: 12px;
-            color: #868e96;
-            margin-top: 5px;
         }
     </style>
 </head>
@@ -297,10 +281,10 @@
             <div class="api-input-group">
                 <input type="password" id="apiKey" class="api-input" placeholder="Введите ваш Gemini API ключ" value="">
                 <button id="saveKeyBtn" class="btn btn-secondary">Сохранить</button>
-                <div id="apiStatus" class="api-status">Ключ не сохранен</div>
+                <div id="apiStatus" class="api-status">⚪ Ключ не сохранен</div>
             </div>
-            <div class="info-text">
-                API ключ хранится только в вашем браузере и не отправляется на сторонние сервера
+            <div class="info-text" style="font-size: 12px; color: #666; margin-top: 5px;">
+                API ключ хранится только в вашем браузере
             </div>
         </div>
 
@@ -310,22 +294,12 @@
                     <span id="statusIndicator" class="status-indicator"></span>
                     <span id="statusMessage">Ожидание подключения</span>
                 </div>
-                <div id="tokenInfo">0 / 1M TPM</div>
-            </div>
-
-            <div class="mic-visualization" id="micViz" style="display: none;">
-                <div class="mic-bar" style="height: 8px;"></div>
-                <div class="mic-bar" style="height: 12px;"></div>
-                <div class="mic-bar" style="height: 10px;"></div>
-                <div class="mic-bar" style="height: 15px;"></div>
-                <div class="mic-bar" style="height: 7px;"></div>
-                <div class="mic-bar" style="height: 20px;"></div>
-                <div class="mic-bar" style="height: 12px;"></div>
+                <div id="tokenInfo" style="font-size: 12px;">⚡ 0 / 1M TPM</div>
             </div>
 
             <div class="conversation" id="conversation">
                 <div class="message assistant-message">
-                    👋 Привет! Я готов к разговору. Вставь API ключ и нажми "Начать разговор"
+                    👋 Привет! Вставьте API ключ и нажмите "Начать разговор"
                 </div>
             </div>
 
@@ -337,11 +311,14 @@
                     <span>⏹️</span> Остановить
                 </button>
             </div>
+
+            <div class="debug-panel" id="debugPanel">
+                [System] Готов к работе
+            </div>
         </div>
 
         <div class="footer">
-            Использует Gemini 2.5 Flash Native Audio Dialog • 
-            <a href="#" id="clearKey">Очистить ключ</a>
+            Gemini 2.5 Flash Native Audio Dialog • Рабочая версия
         </div>
     </div>
 
@@ -351,11 +328,13 @@
                 this.apiKey = localStorage.getItem('gemini_api_key') || '';
                 this.ws = null;
                 this.isConnected = false;
-                this.isListening = false;
-                this.mediaRecorder = null;
+                this.isSpeaking = false;
                 this.audioContext = null;
-                this.analyser = null;
                 this.audioStream = null;
+                this.processor = null;
+                this.source = null;
+                this.audioQueue = [];
+                this.isPlaying = false;
                 
                 // DOM элементы
                 this.apiKeyInput = document.getElementById('apiKey');
@@ -366,31 +345,31 @@
                 this.conversation = document.getElementById('conversation');
                 this.statusIndicator = document.getElementById('statusIndicator');
                 this.statusMessage = document.getElementById('statusMessage');
-                this.micViz = document.getElementById('micViz');
-                this.clearKeyBtn = document.getElementById('clearKey');
+                this.debugPanel = document.getElementById('debugPanel');
+                this.tokenInfo = document.getElementById('tokenInfo');
 
                 // Инициализация
                 this.init();
             }
 
+            log(message) {
+                const time = new Date().toLocaleTimeString();
+                this.debugPanel.innerHTML += `<div>[${time}] ${message}</div>`;
+                this.debugPanel.scrollTop = this.debugPanel.scrollHeight;
+                console.log(`[Gemini] ${message}`);
+            }
+
             init() {
-                // Загружаем сохраненный ключ
                 if (this.apiKey) {
                     this.apiKeyInput.value = '•'.repeat(40);
-                    this.updateApiStatus('Ключ сохранен', 'connected');
+                    this.updateApiStatus('✅ Ключ сохранен', 'connected');
                     this.startBtn.disabled = false;
                 }
 
-                // Обработчики событий
                 this.saveKeyBtn.addEventListener('click', () => this.saveApiKey());
                 this.startBtn.addEventListener('click', () => this.startChat());
                 this.stopBtn.addEventListener('click', () => this.stopChat());
-                this.clearKeyBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.clearApiKey();
-                });
 
-                // При фокусе на поле ключа показываем пустое поле для ввода
                 this.apiKeyInput.addEventListener('focus', () => {
                     if (this.apiKey) {
                         this.apiKeyInput.value = '';
@@ -416,221 +395,15 @@
 
             saveApiKey() {
                 const key = this.apiKeyInput.value.trim();
-                if (key && key.length > 20) { // Простая проверка длины ключа
+                if (key && key.length > 20) {
                     this.apiKey = key;
                     localStorage.setItem('gemini_api_key', key);
                     this.apiKeyInput.value = '•'.repeat(40);
-                    this.updateApiStatus('Ключ сохранен', 'connected');
+                    this.updateApiStatus('✅ Ключ сохранен', 'connected');
                     this.startBtn.disabled = false;
+                    this.log('API ключ сохранен');
                 } else {
-                    this.updateApiStatus('Неверный ключ', 'error');
-                }
-            }
-
-            clearApiKey() {
-                this.apiKey = '';
-                localStorage.removeItem('gemini_api_key');
-                this.apiKeyInput.value = '';
-                this.updateApiStatus('Ключ не сохранен');
-                this.startBtn.disabled = true;
-                if (this.isConnected) {
-                    this.stopChat();
-                }
-            }
-
-            async startChat() {
-                if (!this.apiKey) {
-                    this.updateApiStatus('Сначала сохраните API ключ', 'error');
-                    return;
-                }
-
-                try {
-                    // Запрашиваем доступ к микрофону
-                    this.audioStream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true
-                        } 
-                    });
-
-                    // Настраиваем WebSocket соединение
-                    await this.setupWebSocket();
-
-                    // Настраиваем запись аудио
-                    this.setupAudioRecording();
-
-                    // Обновляем UI
-                    this.isConnected = true;
-                    this.startBtn.disabled = true;
-                    this.stopBtn.disabled = false;
-                    this.statusIndicator.classList.add('active');
-                    this.statusMessage.textContent = 'Подключено, слушаю...';
-                    
-                    this.addMessage('assistant', '🟢 Подключение установлено! Говорите со мной...');
-
-                } catch (error) {
-                    console.error('Ошибка при старте:', error);
-                    this.addMessage('assistant', '❌ Ошибка: ' + error.message);
-                    this.statusMessage.textContent = 'Ошибка подключения';
-                }
-            }
-
-            async setupWebSocket() {
-                // Формируем URL для WebSocket соединения с Gemini API
-                const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
-                
-                this.ws = new WebSocket(wsUrl);
-
-                this.ws.onopen = () => {
-                    console.log('WebSocket подключен');
-                    
-                    // Отправляем конфигурацию
-                    const setupMessage = {
-                        setup: {
-                            model: "models/gemini-2.5-flash-native-audio-dialog",
-                            generation_config: {
-                                response_modalities: ["AUDIO"],
-                                temperature: 0.7,
-                            },
-                            input_audio_transcription: {
-                                enabled: true
-                            },
-                            output_audio_transcription: {
-                                enabled: true
-                            }
-                        }
-                    };
-                    
-                    this.ws.send(JSON.stringify(setupMessage));
-                };
-
-                this.ws.onmessage = (event) => {
-                    const response = JSON.parse(event.data);
-                    this.handleGeminiResponse(response);
-                };
-
-                this.ws.onerror = (error) => {
-                    console.error('WebSocket ошибка:', error);
-                    this.addMessage('assistant', '❌ Ошибка WebSocket соединения');
-                };
-
-                this.ws.onclose = () => {
-                    console.log('WebSocket закрыт');
-                    if (this.isConnected) {
-                        this.stopChat();
-                    }
-                };
-
-                // Ждем открытия соединения
-                await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error('Таймаут подключения')), 5000);
-                    this.ws.onopen = () => {
-                        clearTimeout(timeout);
-                        resolve();
-                    };
-                    this.ws.onerror = () => {
-                        clearTimeout(timeout);
-                        reject(new Error('Не удалось подключиться'));
-                    };
-                });
-            }
-
-            setupAudioRecording() {
-                if (!this.audioStream) return;
-
-                // Настройка анализатора для визуализации
-                this.audioContext = new AudioContext();
-                this.analyser = this.audioContext.createAnalyser();
-                const source = this.audioContext.createMediaStreamSource(this.audioStream);
-                source.connect(this.analyser);
-                
-                // Запускаем визуализацию
-                this.micViz.style.display = 'flex';
-                this.startVisualization();
-
-                // Настраиваем MediaRecorder для отправки аудио
-                this.mediaRecorder = new MediaRecorder(this.audioStream, {
-                    mimeType: 'audio/webm;codecs=opus'
-                });
-
-                this.mediaRecorder.ondataavailable = async (event) => {
-                    if (event.data.size > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        // Конвертируем audio/webm в audio/pcm (упрощенно)
-                        const buffer = await event.data.arrayBuffer();
-                        
-                        // Отправляем аудио чанк в Gemini
-                        const message = {
-                            realtime_input: {
-                                media_chunks: [{
-                                    data: btoa(String.fromCharCode(...new Uint8Array(buffer))),
-                                    mime_type: "audio/pcm"
-                                }]
-                            }
-                        };
-                        
-                        this.ws.send(JSON.stringify(message));
-                    }
-                };
-
-                // Отправляем аудио каждые 100мс
-                this.mediaRecorder.start(100);
-                this.isListening = true;
-                this.statusIndicator.classList.add('listening');
-            }
-
-            startVisualization() {
-                if (!this.analyser) return;
-
-                const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                const bars = document.querySelectorAll('.mic-bar');
-
-                const updateVisualization = () => {
-                    if (!this.isListening || !this.analyser) return;
-                    
-                    this.analyser.getByteFrequencyData(dataArray);
-                    
-                    bars.forEach((bar, index) => {
-                        if (index < dataArray.length) {
-                            const value = dataArray[index] / 255 * 30;
-                            bar.style.height = Math.max(5, value) + 'px';
-                        }
-                    });
-                    
-                    requestAnimationFrame(updateVisualization);
-                };
-
-                updateVisualization();
-            }
-
-            handleGeminiResponse(response) {
-                console.log('Ответ от Gemini:', response);
-
-                // Обрабатываем транскрипцию речи пользователя
-                if (response.serverContent?.inputTranscription) {
-                    const text = response.serverContent.inputTranscription.text;
-                    if (text) {
-                        this.addMessage('user', text);
-                    }
-                }
-
-                // Обрабатываем ответ модели
-                if (response.serverContent?.outputTranscription) {
-                    const text = response.serverContent.outputTranscription.text;
-                    if (text) {
-                        this.addMessage('assistant', text);
-                    }
-                }
-
-                // Обрабатываем аудио ответ (воспроизводим)
-                if (response.serverContent?.modelTurn?.parts) {
-                    response.serverContent.modelTurn.parts.forEach(part => {
-                        if (part.inlineData?.data) {
-                            // В реальном приложении здесь нужно воспроизводить аудио
-                            // Для упрощения просто логируем
-                            console.log('Получен аудио ответ');
-                        }
-                    });
+                    this.updateApiStatus('❌ Неверный ключ', 'error');
                 }
             }
 
@@ -642,10 +415,233 @@
                 this.conversation.scrollTop = this.conversation.scrollHeight;
             }
 
+            async startChat() {
+                if (!this.apiKey) {
+                    this.updateApiStatus('❌ Сначала сохраните API ключ', 'error');
+                    return;
+                }
+
+                try {
+                    this.log('Запрашиваю доступ к микрофону...');
+                    
+                    // Запрашиваем микрофон с правильными настройками для Gemini
+                    this.audioStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            channelCount: 1,
+                            sampleRate: 16000,
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        } 
+                    });
+
+                    this.log('✅ Микрофон получен');
+
+                    // Создаем аудио контекст с правильной частотой
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: 16000,
+                        latencyHint: 'interactive'
+                    });
+
+                    await this.audioContext.resume();
+                    this.log('✅ Аудио контекст создан');
+
+                    // Создаем источник
+                    this.source = this.audioContext.createMediaStreamSource(this.audioStream);
+                    
+                    // Создаем процессор для отправки аудио в реальном времени
+                    const bufferSize = 4096;
+                    this.processor = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
+                    
+                    this.source.connect(this.processor);
+                    this.processor.connect(this.audioContext.destination);
+
+                    // Подключаемся к WebSocket
+                    await this.setupWebSocket();
+
+                    // Настраиваем отправку аудио
+                    this.processor.onaudioprocess = (e) => {
+                        if (this.ws && this.ws.readyState === WebSocket.OPEN && this.isConnected) {
+                            const inputData = e.inputBuffer.getChannelData(0);
+                            
+                            // Конвертируем Float32 в Int16 для Gemini
+                            const int16Data = new Int16Array(inputData.length);
+                            for (let i = 0; i < inputData.length; i++) {
+                                int16Data[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                            }
+
+                            // Отправляем аудио в правильном формате
+                            const audioMessage = {
+                                realtime_input: {
+                                    media_chunks: [{
+                                        data: btoa(String.fromCharCode(...new Uint8Array(int16Data.buffer))),
+                                        mime_type: "audio/pcm"
+                                    }]
+                                }
+                            };
+
+                            this.ws.send(JSON.stringify(audioMessage));
+                        }
+                    };
+
+                    this.isConnected = true;
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+                    this.statusIndicator.classList.add('connected');
+                    this.statusMessage.textContent = 'Подключено';
+                    
+                    this.addMessage('assistant', '🟢 Подключение установлено! Говорите со мной...');
+                    this.log('✅ Сессия начата');
+
+                } catch (error) {
+                    this.log(`❌ Ошибка: ${error.message}`);
+                    this.addMessage('assistant', '❌ Ошибка: ' + error.message);
+                }
+            }
+
+            async setupWebSocket() {
+                return new Promise((resolve, reject) => {
+                    try {
+                        // Правильный URL для Gemini Live API
+                        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
+                        
+                        this.ws = new WebSocket(wsUrl);
+
+                        this.ws.onopen = () => {
+                            this.log('✅ WebSocket подключен');
+                            
+                            // Отправляем конфигурацию в правильном формате
+                            const setupMessage = {
+                                setup: {
+                                    model: "models/gemini-2.0-flash-exp", // Используем стабильную модель
+                                    generation_config: {
+                                        response_modalities: ["AUDIO"],
+                                        temperature: 0.7,
+                                        top_p: 0.95,
+                                        top_k: 40
+                                    },
+                                    system_instruction: {
+                                        parts: [{
+                                            text: "Ты дружелюбный голосовой помощник. Отвечай кратко и естественно, как в разговоре."
+                                        }]
+                                    }
+                                }
+                            };
+                            
+                            this.ws.send(JSON.stringify(setupMessage));
+                            this.log('📤 Конфигурация отправлена');
+                            resolve();
+                        };
+
+                        this.ws.onmessage = (event) => {
+                            const response = JSON.parse(event.data);
+                            this.handleGeminiResponse(response);
+                        };
+
+                        this.ws.onerror = (error) => {
+                            this.log(`❌ WebSocket ошибка: ${JSON.stringify(error)}`);
+                            reject(error);
+                        };
+
+                        this.ws.onclose = (event) => {
+                            this.log(`🔴 WebSocket закрыт: код ${event.code}, причина: ${event.reason}`);
+                            if (this.isConnected) {
+                                this.stopChat();
+                            }
+                        };
+
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            }
+
+            handleGeminiResponse(response) {
+                // Обрабатываем подтверждение setup
+                if (response.setupComplete) {
+                    this.log('✅ Конфигурация принята');
+                    return;
+                }
+
+                // Обрабатываем транскрипцию речи пользователя
+                if (response.serverContent?.interrupted) {
+                    this.log('⏸️ Пользователь прервал ответ');
+                }
+
+                if (response.serverContent?.turnComplete) {
+                    this.isSpeaking = false;
+                    this.statusIndicator.classList.remove('speaking');
+                }
+
+                if (response.serverContent?.modelTurn) {
+                    this.isSpeaking = true;
+                    this.statusIndicator.classList.add('speaking');
+                    
+                    // Обрабатываем части ответа
+                    response.serverContent.modelTurn.parts.forEach(part => {
+                        // Текстовая транскрипция
+                        if (part.text) {
+                            this.addMessage('assistant', part.text);
+                            this.log(`🤖 Ответ: ${part.text.substring(0, 50)}...`);
+                        }
+                        
+                        // Аудио данные
+                        if (part.inlineData) {
+                            this.log(`🔊 Получен аудио ответ (${part.inlineData.mimeType})`);
+                            this.playAudioResponse(part.inlineData.data);
+                        }
+                    });
+                }
+
+                // Транскрипция речи пользователя
+                if (response.serverContent?.inputTranscription) {
+                    const text = response.serverContent.inputTranscription.text;
+                    if (text) {
+                        this.addMessage('user', text);
+                        this.log(`🗣️ Распознано: ${text}`);
+                    }
+                }
+
+                // Информация о токенах
+                if (response.usageMetadata) {
+                    const usage = response.usageMetadata;
+                    this.tokenInfo.textContent = `⚡ ${usage.totalTokens || 0} / 1M TPM`;
+                }
+            }
+
+            playAudioResponse(base64Data) {
+                try {
+                    // Декодируем base64 в аудио данные
+                    const binaryString = atob(base64Data);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+
+                    // Воспроизводим аудио
+                    this.audioContext.decodeAudioData(bytes.buffer, (buffer) => {
+                        const source = this.audioContext.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(this.audioContext.destination);
+                        source.start();
+                        this.log('🔊 Воспроизвожу ответ');
+                    });
+                } catch (error) {
+                    this.log(`❌ Ошибка воспроизведения: ${error.message}`);
+                }
+            }
+
             stopChat() {
-                // Останавливаем запись
-                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                    this.mediaRecorder.stop();
+                this.log('🛑 Останавливаю сессию...');
+
+                // Останавливаем процессор
+                if (this.processor) {
+                    this.processor.disconnect();
+                }
+
+                // Останавливаем источник
+                if (this.source) {
+                    this.source.disconnect();
                 }
 
                 // Закрываем аудио контекст
@@ -653,7 +649,7 @@
                     this.audioContext.close();
                 }
 
-                // Останавливаем все треки микрофона
+                // Останавливаем микрофон
                 if (this.audioStream) {
                     this.audioStream.getTracks().forEach(track => track.stop());
                 }
@@ -665,14 +661,14 @@
 
                 // Обновляем UI
                 this.isConnected = false;
-                this.isListening = false;
+                this.isSpeaking = false;
                 this.startBtn.disabled = false;
                 this.stopBtn.disabled = true;
-                this.statusIndicator.classList.remove('active', 'listening');
+                this.statusIndicator.classList.remove('connected', 'speaking');
                 this.statusMessage.textContent = 'Отключено';
-                this.micViz.style.display = 'none';
 
                 this.addMessage('assistant', '🔴 Разговор завершен');
+                this.log('✅ Сессия остановлена');
             }
         }
 
